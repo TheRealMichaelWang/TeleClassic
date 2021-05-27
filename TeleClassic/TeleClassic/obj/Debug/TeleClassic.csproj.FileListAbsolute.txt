@@ -1,0 +1,7 @@
+C:\Users\Micha\source\repos\TeleClassic\TeleClassic\bin\Debug\TeleClassic.exe.config
+C:\Users\Micha\source\repos\TeleClassic\TeleClassic\bin\Debug\TeleClassic.exe
+C:\Users\Micha\source\repos\TeleClassic\TeleClassic\bin\Debug\TeleClassic.pdb
+C:\Users\Micha\source\repos\TeleClassic\TeleClassic\obj\Debug\TeleClassic.csprojAssemblyReference.cache
+C:\Users\Micha\source\repos\TeleClassic\TeleClassic\obj\Debug\TeleClassic.csproj.CoreCompileInputs.cache
+C:\Users\Micha\source\repos\TeleClassic\TeleClassic\obj\Debug\TeleClassic.exe
+C:\Users\Micha\source\repos\TeleClassic\TeleClassic\obj\Debug\TeleClassic.pdb
