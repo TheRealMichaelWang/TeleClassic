@@ -63,10 +63,7 @@ namespace TeleClassic.networking
                     {
                         Gameplay.Worlds[player.Location.Identfier][setBlockPacket.X, setBlockPacket.Y, setBlockPacket.Z] = Blocks.Air;
                     }
-                    if (!Gameplay.Worlds[player.Location.Identfier].Locked)
-                    {
-                        Gameplay.ExecuteTask(Physics.Update, Gameplay.Worlds[player.Location.Identfier], setBlockPacket.X, setBlockPacket.Y, setBlockPacket.Z);
-                    }
+                    Gameplay.ExecuteTask(Physics.Update, Gameplay.Worlds[player.Location.Identfier], setBlockPacket.X, setBlockPacket.Y, setBlockPacket.Z);
                 }
             }
         }
