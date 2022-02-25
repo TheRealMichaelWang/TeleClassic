@@ -1,0 +1,16 @@
+C:\Users\Micha\source\repos\TeleClassic\bin\Debug\netcoreapp5.0\main.exe
+C:\Users\Micha\source\repos\TeleClassic\bin\Debug\netcoreapp5.0\main.deps.json
+C:\Users\Micha\source\repos\TeleClassic\bin\Debug\netcoreapp5.0\main.runtimeconfig.json
+C:\Users\Micha\source\repos\TeleClassic\bin\Debug\netcoreapp5.0\main.runtimeconfig.dev.json
+C:\Users\Micha\source\repos\TeleClassic\bin\Debug\netcoreapp5.0\main.dll
+C:\Users\Micha\source\repos\TeleClassic\bin\Debug\netcoreapp5.0\ref\main.dll
+C:\Users\Micha\source\repos\TeleClassic\bin\Debug\netcoreapp5.0\main.pdb
+C:\Users\Micha\source\repos\TeleClassic\obj\Debug\netcoreapp5.0\main.csproj.AssemblyReference.cache
+C:\Users\Micha\source\repos\TeleClassic\obj\Debug\netcoreapp5.0\main.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Micha\source\repos\TeleClassic\obj\Debug\netcoreapp5.0\main.AssemblyInfoInputs.cache
+C:\Users\Micha\source\repos\TeleClassic\obj\Debug\netcoreapp5.0\main.AssemblyInfo.cs
+C:\Users\Micha\source\repos\TeleClassic\obj\Debug\netcoreapp5.0\main.csproj.CoreCompileInputs.cache
+C:\Users\Micha\source\repos\TeleClassic\obj\Debug\netcoreapp5.0\main.dll
+C:\Users\Micha\source\repos\TeleClassic\obj\Debug\netcoreapp5.0\ref\main.dll
+C:\Users\Micha\source\repos\TeleClassic\obj\Debug\netcoreapp5.0\main.pdb
+C:\Users\Micha\source\repos\TeleClassic\obj\Debug\netcoreapp5.0\main.genruntimeconfig.cache

@@ -23,8 +23,8 @@ namespace TeleClassic.Networking.Clientbound
             MinecraftStreamWriter writer = new MinecraftStreamWriter(stream);
             writer.WriteByte(0x03);
             writer.WriteShort(ChunkLength);
-            foreach (byte b in ChunkData)
-                writer.WriteByte(b);
+            for (int i = 0; i < ChunkLength; i++)
+                writer.WriteByte(ChunkData[i]);
             for (int i = ChunkLength; i < 1024; i++)
                 writer.WriteByte(0);
             writer.WriteByte(PercentComplete);

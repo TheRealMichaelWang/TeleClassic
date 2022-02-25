@@ -152,7 +152,7 @@ namespace TeleClassic.Networking
                 {
                     byte[] chunk = new byte[1024];
                     short copied;
-                    for (copied = 0; copied < 1024 && i + copied < world_data.Length; copied++)
+                    for (copied = 0; copied < 1024 && i + copied < buffer.Length; copied++)
                         chunk[copied] = world_data[i + copied];
                     SendPacket(new LevelDataChunkPacket(copied, chunk, 0));
                 }
