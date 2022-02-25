@@ -11,6 +11,14 @@ namespace TeleClassic.Networking
 {
     public sealed partial class PlayerSession : IDisposable
     {
+        public static Dictionary<byte, int> expectedBytes = new Dictionary<byte, int>()
+        {
+            {0x00, 130}, //identification
+            {0x05, 8}, //set block
+            {0x08, 9}, //position and orientation
+            {0x0d, 65}, //message
+        };
+
         public delegate void PacketHandler();
 
         private Server server;
@@ -23,8 +31,21 @@ namespace TeleClassic.Networking
         private string guestName;
         private Account account;
         private MultiplayerWorld currentWorld;
+        private byte bufferedOpCode;
 
         public bool Disconnected { get; private set; }
+        public bool HasPackets { get => networkStream.DataAvailable; }
+        public bool IsLoggedIn {get => account != null; }
+
+        public Account Account
+        {
+            get
+            {
+                if (account == null)
+                    throw new InvalidOperationException("User is not logged in.");
+                return account;
+            }
+        }
 
         public string Name
         {
@@ -57,6 +78,7 @@ namespace TeleClassic.Networking
             networkStream = client.GetStream();
             disposed = false;
             Disconnected = false;
+            bufferedOpCode = byte.MaxValue;
 
             packetHandlers = new Dictionary<byte, PacketHandler>(){
                 {0   , handlePlayerId},
@@ -113,6 +135,8 @@ namespace TeleClassic.Networking
                 {
                     if (currentWorld != null)
                         currentWorld.LeaveWorld(this);
+                    if (account != null)
+                        server.accountManager.Logout(account);
                     networkStream.Close();
                     client.Close();
                     Disconnected = true;
@@ -135,20 +159,21 @@ namespace TeleClassic.Networking
             currentWorld = null;
         }
 
-        public void ProcessAvailibleData()
+        public void HandleNextPacket()
         {
-            if (Disconnected)
-                return;
-
-            while (networkStream.DataAvailable)
+            if(bufferedOpCode == byte.MaxValue) //this is to prevent a potential partial packet DDOS attack
             {
-                byte id = (byte)networkStream.ReadByte();
-                if (!packetHandlers.ContainsKey(id))
+                bufferedOpCode = (byte)networkStream.ReadByte();
+                if (!packetHandlers.ContainsKey(bufferedOpCode))
                 {
                     Logger.Log("error/networking", "Received invalid packet ID.", client.Client.RemoteEndPoint.ToString());
                     throw new InvalidOperationException("Your Client has a bug: Received invalid packet ID.");
                 }
-                packetHandlers[id]();
+            }
+            else if(client.Available >= expectedBytes[bufferedOpCode])
+            {
+                packetHandlers[bufferedOpCode]();
+                bufferedOpCode = byte.MaxValue;
             }
         }
 
@@ -172,7 +197,7 @@ namespace TeleClassic.Networking
                 guestName = playerId.Name;
                 SendPacket(new IdentificationPacket("TeleClassic", e.Message, 0x07, 0x0));
             }
-            this.JoinWorld(Program.Lobby);
+            this.JoinWorld(Program.worldManager.Lobby);
         }
 
         public void handlePlayerUpdatePosition()

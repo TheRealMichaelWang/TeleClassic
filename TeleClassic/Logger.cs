@@ -48,7 +48,7 @@ namespace TeleClassic
         public static void Log(string category, string description, string associatedUser)
         {
             if (category == "Info")
-                Console.WriteLine("[" + category + "-" + DateTime.Now + "]:" + description);
+                Console.WriteLine("[" + category + "-" + DateTime.Now + "]:" + description + "(" + associatedUser + ")");
             events.Add(new LogEvent(category, associatedUser, description, DateTime.Now));
         }
 

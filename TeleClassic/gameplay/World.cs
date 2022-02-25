@@ -11,7 +11,7 @@ namespace TeleClassic.Gameplay
 {
     public class World
     {
-        public string Name;
+        public string Name { get; protected set; }
         public PlayerPosition SpawnPoint;
 
         protected NBT nBT;
@@ -25,6 +25,7 @@ namespace TeleClassic.Gameplay
         public readonly byte FormatVersion; //who gives a fuck?
 
         private int IndexFromPosition(BlockPosition position) => (position.Y * ZDim + position.Z) * XDim + position.X;
+        protected bool edited;
 
         private void FillBlocks(short x, short y, short z, short xDim, short yDim, short zDim, byte blockType)
         {
@@ -53,6 +54,7 @@ namespace TeleClassic.Gameplay
                 Blocks = (byte[])nBT.FindObject("BlockArray");
 
                 Logger.Log("Info", "Sucesfully loaded world.", fileName);
+                edited = false;
             }
             catch (KeyNotFoundException)
             {
@@ -77,11 +79,15 @@ namespace TeleClassic.Gameplay
                     new NBTString("Software", "TeleClassic"),
                     new NBTString("MapGeneratorName", "Flat")
                 })); 
+                edited = true;
+                Save();
             }
         }
 
         public void Save()
         {
+            if (!edited)
+                return;
             nBT.SetObject(string.Empty, new NBTString("Name", Name));
             nBT.SetObject(string.Empty, new NBTByte("FormatVersion", 1));
 
@@ -101,16 +107,18 @@ namespace TeleClassic.Gameplay
             nBT.SetObject(string.Empty, new NBTByteArray("BlockArray", Blocks));
             nBT.Save();
             Logger.Log("Info", "Saved world.", Name);
+            this.edited = false;
         }
 
         public bool InWorld(BlockPosition position) => position.X >= 0 && position.X < XDim && position.Y >= 0 && position.Y < YDim && position.Z >= 0 && position.Z < ZDim;
 
         public bool InWorld(PlayerPosition position) => InWorld(new BlockPosition(position));
 
-        public void SetBlock(BlockPosition position, byte blockType)
+        public virtual void SetBlock(BlockPosition position, byte blockType)
         {
             if (!InWorld(position))
                 throw new InvalidOperationException("Set block position is out of bounds.");
+            this.edited = true;
             Blocks[IndexFromPosition(position)] = blockType;
         }
 
@@ -146,8 +154,7 @@ namespace TeleClassic.Networking
                     short copied;
                     for (copied = 0; copied < 1024 && i + copied < world_data.Length; copied++)
                         chunk[copied] = world_data[i + copied];
-                    Packet p = new LevelDataChunkPacket(copied, chunk, 0);
-                    SendPacket(p);
+                    SendPacket(new LevelDataChunkPacket(copied, chunk, 0));
                 }
 
                 SendPacket(new LevelFinalizePacket(world.XDim, world.YDim, world.ZDim));

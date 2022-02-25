@@ -5,9 +5,34 @@ using TeleClassic.Networking.Clientbound;
 
 namespace TeleClassic.Networking
 {
+
     public class MultiplayerWorld : World
     {
+        public sealed class GetPlayerListCommandAction : CommandProcessor.CommandAction
+        {
+            public int GetExpectedArgumentCount() => 1;
+            public bool ReturnsValue() => true;
+
+            public string GetName() => "lp";
+            public string GetDescription() => "Lists players in worlds.";
+
+            public void Invoke(CommandProcessor commandProcessor)
+            {
+                CommandProcessor.WorldCommandObject worlds = (CommandProcessor.WorldCommandObject)commandProcessor.PopObject(typeof(CommandProcessor.WorldCommandObject));
+
+                List<PlayerSession> playersInWorld = new List<PlayerSession>();
+                foreach (MultiplayerWorld world in worlds.worlds)
+                {
+                    playersInWorld.AddRange(world.playersInWorld);
+                }
+                commandProcessor.PushObject(new CommandProcessor.PlayerCommandObject(playersInWorld));
+            }
+        }
+
+        public static readonly int MaxPlayerCapacity = 127;
+
         private List<PlayerSession> playersInWorld;
+        
         private Dictionary<PlayerSession, sbyte> playerIdMap;
         private Dictionary<PlayerSession, PlayerPosition> playerPositionMap;
         private Queue<sbyte> availibleIds;
@@ -16,6 +41,8 @@ namespace TeleClassic.Networking
         private Permission minimumJoinPerms;
 
         public int PlayerCapacity { get; private set; }
+
+        public bool InWorld(PlayerSession player) => playerIdMap.ContainsKey(player);
 
         public MultiplayerWorld(string fileName, Permission minimumBuildPerms, Permission minimumJoinPerms, int playerCapacity) : base(fileName)
         {
@@ -34,7 +61,7 @@ namespace TeleClassic.Networking
                 availibleIds.Enqueue(i);
         }
 
-        public void JoinWorld(PlayerSession playerSession)
+        public virtual void JoinWorld(PlayerSession playerSession)
         {
             if (playerSession.Permissions < minimumJoinPerms)
             {
@@ -93,6 +120,13 @@ namespace TeleClassic.Networking
             foreach (PlayerSession otherPlayer in playersInWorld)
                 if (otherPlayer != playerSession)
                     otherPlayer.SendPacket(new PositionAndOrientationPacket(playerIdMap[playerSession], newPosition));
+        }
+
+        public override void SetBlock(BlockPosition position, byte blockType)
+        {
+            base.SetBlock(position, blockType);
+            foreach (PlayerSession otherPlayer in playersInWorld)
+                otherPlayer.SendPacket(new SetBlockPacket(position, blockType));
         }
 
         public virtual void SetBlock(PlayerSession playerSession, BlockPosition position, byte blockType)

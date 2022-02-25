@@ -33,7 +33,7 @@ namespace TeleClassic
         }
 
         private readonly NBTCompound Head;
-        private readonly string filePath;
+        private string filePath;
 
         public NBT(string filePath)
         {

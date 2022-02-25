@@ -54,6 +54,9 @@ namespace TeleClassic
 
         private readonly string accountDbFile;
 
+        public bool UserExists(string username) => usernameLookup.ContainsKey(username);
+        public Account FindUser(string username) => usernameLookup[username];
+
         public AccountManager(string accountDbFile)
         {
             Logger.Log("Info", "Loading accounts...", "None");
@@ -124,6 +127,8 @@ namespace TeleClassic
         {
             if (usernameLookup.ContainsKey(username))
                 throw new ArgumentException("Username has already been taken.", "username");
+            if (username.Length > 12)
+                throw new ArgumentException("Username is to long (must be under 12 chars)", "username");
             if (password.Length < 5)
                 throw new ArgumentException("Password length is too short(must be longer than 5 characters).", "password");
             Account newAccount = new Account(username, password, DateTime.Now, permissions);
@@ -132,6 +137,13 @@ namespace TeleClassic
             allAccounts.Add(newAccount);
             Logger.Log("Info", "New account registered.", username);
             return newAccount;
+        }
+
+        public void Logout(Account loggedInAccount)
+        {
+            if (!loggedInAccount.IsLoggedIn)
+                throw new InvalidOperationException("Cannot log user out that has already been logged in.");
+            loggedInAccount.IsLoggedIn = false;
         }
     }
 }

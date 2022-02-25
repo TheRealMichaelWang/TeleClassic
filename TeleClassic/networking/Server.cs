@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using TeleClassic;
 
 namespace TeleClassic.Networking
 {
@@ -13,8 +14,8 @@ namespace TeleClassic.Networking
 
         public readonly int Port;
 
-        private List<PlayerSession> sessions;
-        public AccountManager accountManager;
+        private readonly List<PlayerSession> sessions;
+        public readonly AccountManager accountManager;
 
         private volatile bool exit;
 
@@ -68,18 +69,19 @@ namespace TeleClassic.Networking
                 }
 
                 foreach (PlayerSession session in sessions)
-                {
-                    try
+                    if (session.HasPackets)
                     {
-                        session.ProcessAvailibleData();
+                        try
+                        {
+                            session.HandleNextPacket();
+                        }
+                        catch (InvalidOperationException e)
+                        {
+                            session.Kick(e.Message);
+                            closedSessions.Enqueue(session);
+                            Logger.Log("networking/security", "Kicked player from server because of an invalid operation.", "None");
+                        }
                     }
-                    catch (InvalidOperationException e)
-                    {
-                        session.Kick(e.Message);
-                        closedSessions.Enqueue(session);
-                        Logger.Log("networking/security", "Kicked player from server because of an invalid operation.", "None");
-                    }
-                }
             }
             foreach (PlayerSession session in sessions)
                 session.Kick("The server has been stopped, come back next time!");
