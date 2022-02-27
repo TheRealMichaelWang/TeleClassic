@@ -75,8 +75,8 @@ namespace TeleClassic
                     for (int i = 0; i < account_count; i++)
                     {
                         Account account = new Account(reader);
-                        if ((DateTime.Now - account.LastLogon).TotalDays >= 30)
-                            Logger.Log("Info", "Deleted account after 30 days.", account.Username);
+                        if ((DateTime.Now - account.LastLogon).TotalDays >= 90)
+                            Logger.Log("Info", "Deleted account after 90 days.", account.Username);
                         else
                         {
                             allAccounts.Add(account);
@@ -110,7 +110,7 @@ namespace TeleClassic
             if (toAuth.Password != password)
             {
                 Logger.Log("Security", "Incorrect password submitted.", username);
-                throw new ArgumentException("Incorrect password - please wait at least 30 seconds to try again.", "password");
+                throw new InvalidOperationException("Incorrect password - please wait at least 30 seconds to try again.");
             }
             if (toAuth.IsLoggedIn)
             {

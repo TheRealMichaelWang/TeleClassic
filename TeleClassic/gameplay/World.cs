@@ -27,7 +27,7 @@ namespace TeleClassic.Gameplay
         private int IndexFromPosition(BlockPosition position) => (position.Y * ZDim + position.Z) * XDim + position.X;
         protected bool edited;
 
-        private void FillBlocks(short x, short y, short z, short xDim, short yDim, short zDim, byte blockType)
+        protected void FillBlocks(short x, short y, short z, short xDim, short yDim, short zDim, byte blockType)
         {
             for(short cx = x; cx < x + xDim; cx++)
                 for(short cy = y; cy < y + yDim; cy++)
@@ -66,13 +66,13 @@ namespace TeleClassic.Gameplay
                 YDim = 32;
                 ZDim = 64;
 
-                SpawnPoint = new PlayerPosition(new BlockPosition(32, 6, 32), PlayerPosition.HeadingDirection.North, PlayerPosition.PitchDirection.Up);
+                SpawnPoint = new PlayerPosition(new BlockPosition(32, 17, 32), PlayerPosition.HeadingDirection.North, PlayerPosition.PitchDirection.Up);
                 Blocks = new byte[XDim * YDim * ZDim];
 
                 FillBlocks(0, 0, 0, XDim, 1, ZDim, Gameplay.Blocks.Lavastill);
-                FillBlocks(0, 1, 0, XDim, 30, ZDim, Gameplay.Blocks.Stone);
-                FillBlocks(0, 31, 0, XDim, 1, ZDim, Gameplay.Blocks.Grass);
-                FillBlocks(0, 32, 0, XDim, (short)(YDim - 32), ZDim, Gameplay.Blocks.Air);
+                FillBlocks(0, 1, 0, XDim, 12, ZDim, Gameplay.Blocks.Stone);
+                FillBlocks(0, 13, 0, XDim, 3, ZDim, Gameplay.Blocks.Grass);
+                FillBlocks(0, 16, 0, XDim, (short)(YDim - 16), ZDim, Gameplay.Blocks.Air);
 
                 nBT.SetObject(string.Empty, new NBTCompound("MapGenerator", new List<NBTObject>()
                 {

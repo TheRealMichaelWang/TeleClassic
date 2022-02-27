@@ -21,6 +21,9 @@ namespace TeleClassic.Networking
 
         public delegate void PacketHandler();
 
+        public bool IsMuted;
+        public readonly IPAddress Address;
+
         private Server server;
         private volatile TcpClient client;
         private volatile NetworkStream networkStream;
@@ -73,20 +76,31 @@ namespace TeleClassic.Networking
 
         public PlayerSession(TcpClient client, Server server)
         {
+            this.Address = ((IPEndPoint)client.Client.RemoteEndPoint).Address;
+            if (server.Blacklist.IsBanned(this.Address))
+            {
+                Blacklist.IPBanEntry banEntry = server.Blacklist.GetBanEntry(this.Address);
+                Kick("You've been banned for: " + banEntry.Reason + ".");
+                throw new InvalidOperationException("A banned player tried to connect.");
+            }
+
+
             this.server = server;
             this.client = client;
             networkStream = client.GetStream();
             disposed = false;
             Disconnected = false;
             bufferedOpCode = byte.MaxValue;
+            this.IsMuted = false;
 
             packetHandlers = new Dictionary<byte, PacketHandler>(){
                 {0   , handlePlayerId},
                 {0x08, handlePlayerUpdatePosition},
-                {0x05, handlePlayerSetBlock}
+                {0x05, handlePlayerSetBlock},
+                {0x0d, handlePlayerMessage}
             };
 
-            Logger.Log("networking", "Accepted new client conncetion.", client.Client.RemoteEndPoint.ToString());
+            Logger.Log("networking", "Accepted new client conncetion.", Address.ToString());
         }
 
         public bool SendPacket(Packet packet)
@@ -115,7 +129,6 @@ namespace TeleClassic.Networking
         public void Kick(string reason)
         {
             SendPacket(new DisconnectPlayerPacket(reason));
-            Thread.Sleep(100);
             Dispose();
         }
 
@@ -136,7 +149,7 @@ namespace TeleClassic.Networking
                     if (currentWorld != null)
                         currentWorld.LeaveWorld(this);
                     if (account != null)
-                        server.accountManager.Logout(account);
+                        server.AccountManager.Logout(account);
                     networkStream.Close();
                     client.Close();
                     Disconnected = true;
@@ -166,7 +179,7 @@ namespace TeleClassic.Networking
                 bufferedOpCode = (byte)networkStream.ReadByte();
                 if (!packetHandlers.ContainsKey(bufferedOpCode))
                 {
-                    Logger.Log("error/networking", "Received invalid packet ID.", client.Client.RemoteEndPoint.ToString());
+                    Logger.Log("error/networking", "Received invalid packet ID.", Address.ToString());
                     throw new InvalidOperationException("Your Client has a bug: Received invalid packet ID.");
                 }
             }
@@ -183,13 +196,13 @@ namespace TeleClassic.Networking
 
             if (playerId.ProtocolVersion != 0x07)
             {
-                Logger.Log("error/networking", "Client used invalid protocol version.", client.Client.RemoteEndPoint.ToString());
+                Logger.Log("error/networking", "Client used invalid protocol version.", Address.ToString());
                 throw new InvalidOperationException("Invalid Protocol Version.");
             }
 
             try
             {
-                account = server.accountManager.Login(playerId.Name, playerId.Key);
+                account = server.AccountManager.Login(playerId.Name, playerId.Key);
                 SendPacket(new IdentificationPacket("TeleClassic", "You've sucesfully logged in.", 0x07, (account.Permissions >= Permission.Operator) ? (byte)0x64 : (byte)0x0));
             }
             catch (ArgumentException e)
@@ -205,7 +218,7 @@ namespace TeleClassic.Networking
             PositionAndOrientationPacket newPosition = new PositionAndOrientationPacket(networkStream);
             if(currentWorld == null)
             {
-                Logger.Log("error/networking", "Client tried to update position but hasn't joined a world.", client.Client.RemoteEndPoint.ToString());
+                Logger.Log("error/networking", "Client tried to update position but hasn't joined a world.", Address.ToString());
                 throw new InvalidOperationException("Your Client has a bug: Updating position whilst not in world.");
             }
             currentWorld.UpdatePosition(this, newPosition.Position);
@@ -216,13 +229,31 @@ namespace TeleClassic.Networking
             Serverbound.SetBlockPacket setBlockPacket = new Serverbound.SetBlockPacket(networkStream);
             if (currentWorld == null)
             {
-                Logger.Log("error/networking", "Client tried to set a block but hasn't joined a world.", client.Client.RemoteEndPoint.ToString());
+                Logger.Log("error/networking", "Client tried to set a block but hasn't joined a world.", Address.ToString());
                 throw new InvalidOperationException("Your Client has a bug: setting blocks whilst not in world.");
             }
             if (setBlockPacket.Mode == 0x01) //create block
                 currentWorld.SetBlock(this, setBlockPacket.Position, setBlockPacket.BlockType);
             else
                 currentWorld.SetBlock(this, setBlockPacket.Position, Blocks.Air);
+        }
+
+        public void handlePlayerMessage()
+        {
+            MessagePacket messagePacket = new MessagePacket(networkStream);
+            if (currentWorld == null)
+            {
+                Logger.Log("error/networking", "Client tried to send a message but hasn't joined a world.", Address.ToString());
+                throw new InvalidOperationException("Your Client has a bug: setting blocks whilst not in world.");
+            }
+            if (messagePacket.Message.StartsWith('.'))
+            {
+
+            }
+            else 
+            {
+                currentWorld.MessageFromPlayer(this, messagePacket.Message);
+            }
         }
     }
 }

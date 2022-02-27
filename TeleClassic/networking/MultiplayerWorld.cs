@@ -29,6 +29,8 @@ namespace TeleClassic.Networking
             }
         }
 
+        public static readonly GetPlayerListCommandAction getPlayerListCommandAction = new GetPlayerListCommandAction();
+
         public static readonly int MaxPlayerCapacity = 127;
 
         private List<PlayerSession> playersInWorld;
@@ -133,7 +135,7 @@ namespace TeleClassic.Networking
         {
             if (playerSession.Permissions < this.minimumBuildPerms)
             {
-                playerSession.Message("Insufficient permissions to build.");
+                playerSession.Message("&cInsufficient permissions to build.");
                 playerSession.SendPacket(new SetBlockPacket(position, GetBlock(position)));
                 return;
             }
@@ -141,6 +143,22 @@ namespace TeleClassic.Networking
             foreach (PlayerSession otherPlayer in playersInWorld)
                 if (otherPlayer != playerSession)
                     otherPlayer.SendPacket(new SetBlockPacket(position, blockType));
+        }
+
+        public void MessageAllPlayers(string message)
+        {
+            foreach (PlayerSession player in playersInWorld)
+                player.Message(message);
+        }
+
+        public void MessageFromPlayer(PlayerSession playerSession, string message)
+        {
+            if (playerSession.IsMuted)
+            {
+                playerSession.Message("&cShut the fuck up, you are muted.");
+                return;
+            }
+            MessageAllPlayers("&a" + playerSession.Name+":&e"+ message);
         }
     }
 }

@@ -7,7 +7,7 @@ namespace TeleClassic
 {
     public static class Logger
     {
-        private class LogEvent
+        private struct LogEvent
         {
             public readonly string Category;
             public readonly string AssociatedUser;

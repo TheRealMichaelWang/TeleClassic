@@ -14,6 +14,7 @@ class Program
     public static Server server;
     public static AccountManager accountManager;
     public static WorldManager worldManager;
+    public static Blacklist blacklist;
 
     static ConsolePrintCommandAction ConsolePrintCommand = new ConsolePrintCommandAction();
 
@@ -25,7 +26,8 @@ class Program
         AppDomain.CurrentDomain.ProcessExit += new EventHandler(exit);
 
         accountManager = new AccountManager("accounts.db");
-        server = new Server(25565, accountManager);
+        blacklist = new Blacklist("blacklist.db");
+        server = new Server(25565, accountManager, blacklist);
         worldManager = new WorldManager(new MultiplayerWorld("fuck.cw", Permission.Admin, Permission.Member, MultiplayerWorld.MaxPlayerCapacity), accountManager, "worlds.db");
 
         CommandProcessor commandProcessor = new CommandProcessor(Permission.Admin, ConsolePrintCommand);
@@ -36,7 +38,7 @@ class Program
 
 
         if (!accountManager.UserExists("michaelw"))
-            accountManager.Register("michaelw", "iamgod", Permission.Admin);
+            accountManager.Logout(accountManager.Register("michaelw", "iamgod", Permission.Admin));
 
         //worldManager.AddPersonalWorld(new WorldManager.PersonalWorld("fuck.cw", null, true));
 
@@ -72,6 +74,7 @@ class Program
         server.Stop();
         accountManager.Save();
         worldManager.Save();
+        blacklist.Save();
         Logger.Log("Info", "Finished stopping.", "None");
 
         Logger.EndSession();

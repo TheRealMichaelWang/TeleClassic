@@ -9,17 +9,38 @@ namespace TeleClassic.Networking
 {
     public sealed class Server
     {
+        public sealed class GetAllPlayersCommandAction : CommandProcessor.CommandAction
+        {
+            public int GetExpectedArgumentCount() => 0;
+            public bool ReturnsValue() => true;
+
+            public string GetName() => "ps";
+            public string GetDescription() => "Gets a list of all players in the server.";
+
+            Server server;
+
+            public GetAllPlayersCommandAction(Server server)
+            {
+                this.server = server;
+            }
+
+            public void Invoke(CommandProcessor commandProcessor) => commandProcessor.PushObject(new CommandProcessor.PlayerCommandObject(server.sessions));
+        }
+
+        public static GetAllPlayersCommandAction getAllPlayersCommandAction = new GetAllPlayersCommandAction(Program.server);
+
         private readonly TcpListener listener;
         private readonly Thread serverThread;
 
         public readonly int Port;
 
         private readonly List<PlayerSession> sessions;
-        public readonly AccountManager accountManager;
+        public readonly AccountManager AccountManager;
+        public readonly Blacklist Blacklist;
 
         private volatile bool exit;
 
-        public Server(int port, AccountManager accountManager)
+        public Server(int port, AccountManager accountManager, Blacklist blacklist)
         {
             Port = port;
             sessions = new List<PlayerSession>();
@@ -28,7 +49,8 @@ namespace TeleClassic.Networking
             serverThread = new Thread(new ThreadStart(serverLoop));
 
             exit = false;
-            this.accountManager = accountManager;
+            this.AccountManager = accountManager;
+            this.Blacklist = blacklist;
         }
 
         public void Start()
@@ -56,7 +78,16 @@ namespace TeleClassic.Networking
             while (!exit)
             {
                 while (listener.Pending())
-                    sessions.Add(new PlayerSession(listener.AcceptTcpClient(), this));
+                    try
+                    {
+                        sessions.Add(new PlayerSession(listener.AcceptTcpClient(), this));
+                    }
+                    catch (InvalidOperationException e)
+                    {
+                        Logger.Log("info/networking", "Unable to connect client: " + e.Message + ".", "None");
+                    }
+
+
 
                 foreach (PlayerSession session in sessions)
                     if (!session.Disconnected && !session.Ping())

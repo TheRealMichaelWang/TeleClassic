@@ -23,7 +23,7 @@ namespace TeleClassic.Networking
         public void WriteString(string s)
         {
             if (s.Length > 64)
-                throw new ArgumentException("Cannot send string longer than 64 characters.", "string");
+                s = s.Substring(0, 64);
             foreach (char c in s)
                 writer.Write(c);
             for (int i = s.Length; i < 64; i++)

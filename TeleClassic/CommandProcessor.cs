@@ -150,7 +150,7 @@ namespace TeleClassic
             public bool ReturnsValue() => true;
 
             public string GetName() => "fp";
-            public string GetDescription() => "Finds a players whos username in a selection of worlds.";
+            public string GetDescription() => "Finds a players whos username in a selection of players";
 
             public void Invoke(CommandProcessor commandProcessor)
             {
@@ -163,6 +163,49 @@ namespace TeleClassic
                         matchingPlayers.Add(player);
 
                 commandProcessor.PushObject(new PlayerCommandObject(matchingPlayers));
+            }
+        }
+
+        public sealed class ExcludePlayersCommandAction : CommandAction
+        {
+            public int GetExpectedArgumentCount() => 2;
+            public bool ReturnsValue() => true;
+
+            public string GetName() => "ep";
+            public string GetDescription() => "Finds a players whos username in a selection of players.";
+
+            public void Invoke(CommandProcessor commandProcessor)
+            {
+                StringCommandObject query = (StringCommandObject)commandProcessor.PopObject(typeof(StringCommandObject));
+                PlayerCommandObject players = (PlayerCommandObject)commandProcessor.PopObject(typeof(PlayerCommandObject));
+
+                List<PlayerSession> matchingPlayers = new List<PlayerSession>();
+                foreach (PlayerSession player in players.playerSessions)
+                    if (!player.Name.Contains(query.String))
+                        matchingPlayers.Add(player);
+
+                commandProcessor.PushObject(new PlayerCommandObject(matchingPlayers));
+            }
+        }
+
+        public sealed class MessageCommandAction : CommandAction
+        {
+            public int GetExpectedArgumentCount() => 2;
+            public bool ReturnsValue() => true;
+
+            public string GetName() => "m";
+            public string GetDescription() => "Sends a message to a selection of players.";
+
+            public void Invoke(CommandProcessor commandProcessor)
+            {
+                StringCommandObject message = (StringCommandObject)commandProcessor.PopObject(typeof(StringCommandObject));
+                PlayerCommandObject players = (PlayerCommandObject)commandProcessor.PopObject(typeof(PlayerCommandObject));
+
+                if (commandProcessor.Permissions < Permission.Operator)
+                    throw new ArgumentException("Insufficient permissions to send batch messages.");
+
+                foreach (PlayerSession player in players.playerSessions)
+                    player.Message(message.String);
             }
         }
         
@@ -184,7 +227,10 @@ namespace TeleClassic
             public void Invoke(CommandProcessor commandProcessor) => commandProcessor.PushObject(this.LiteralToPush);
         }
 
-        public static ConcatonateCommandAction Concatonate = new ConcatonateCommandAction();
+        public static ConcatonateCommandAction concatonateCommandAction = new ConcatonateCommandAction();
+        public static FindPlayersCommandAction findPlayersCommandAction = new FindPlayersCommandAction();
+        public static ExcludePlayersCommandAction excludePlayersCommandAction = new ExcludePlayersCommandAction();
+        public static MessageCommandAction messageCommandAction = new MessageCommandAction();
 
         public Permission Permissions { get; private set; }
 
@@ -201,14 +247,14 @@ namespace TeleClassic
         public CommandObject PopObject()
         {
             if (stack.Count == 0)
-                throw new InvalidOperationException("Expected more operands on stack.");
+                throw new ArgumentException("Expected more operands on stack.");
             return stack.Pop();
         }
 
         public CommandObject PopObject(Type commandObjectType)
         {
             if (!commandObjectType.IsAssignableTo(typeof(CommandObject)))
-                throw new InvalidOperationException("Cannot expect popped object to be of non-CommandObject type.");
+                throw new ArgumentException("Cannot expect popped object to be of non-CommandObject type.");
             CommandObject commandObject = this.PopObject();
             if (!commandObject.GetType().IsAssignableTo(commandObjectType))
                 throw new ArgumentException("Type error, expected " + commandObjectType.Name+ ".");
@@ -219,8 +265,15 @@ namespace TeleClassic
 
         public void ExecuteCommand(List<CommandAction> commands)
         {
-            foreach(CommandAction command in commands)
-                command.Invoke(this);
+            try
+            {
+                foreach (CommandAction command in commands)
+                    command.Invoke(this);
+            }
+            catch(ArgumentException e)
+            {
+                this.Print("Runtime Error: " + e.Message);
+            }
         }
 
         public void Print(string message) => printCommandAction.Print(message);
@@ -321,12 +374,18 @@ namespace TeleClassic
             this.printCommandAction = printCommandAction;
             availibleCommands = new Dictionary<string, CommandAction>();
             availibleCommands.Add("print", this.printCommandAction);
-            availibleCommands.Add("add", Concatonate);
+            availibleCommands.Add("add", concatonateCommandAction);
 
-            AddCommand(new MultiplayerWorld.GetPlayerListCommandAction());
-            AddCommand(new FindPlayersCommandAction());
-            AddCommand(new WorldManager.GetWorldListCommandAction(Program.worldManager));
-            AddCommand(new WorldManager.GeneratePersonalWorldCommandAction(Program.worldManager));
+            AddCommand(MultiplayerWorld.getPlayerListCommandAction);
+            AddCommand(findPlayersCommandAction);
+            AddCommand(excludePlayersCommandAction);
+            AddCommand(Server.getAllPlayersCommandAction);
+            AddCommand(WorldManager.getWorldListCommandAction);
+            AddCommand(WorldManager.generatePersonalWorldCommandAction);
+            AddCommand(messageCommandAction);
+            AddCommand(Blacklist.kickPlayerCommandAction);
+            AddCommand(Blacklist.banPlayerCommandAction);
+            AddCommand(Blacklist.temporaryBanPlayerCommandAction);
             AddCommand(helpCommandAction = new HelpCommandAction(this.availibleCommands.Values.ToList()));
         }
 
@@ -346,7 +405,7 @@ namespace TeleClassic
                     CompileValue(lexer, commands);
                     MatchNextTok(lexer, Token.TokenType.Comma);
                     CompileValue(lexer, commands);
-                    commands.Add(Concatonate);
+                    commands.Add(concatonateCommandAction);
                     break;
                 case Token.TokenType.Identifier:
                     {
