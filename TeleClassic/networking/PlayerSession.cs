@@ -6,11 +6,61 @@ using System.Threading;
 using TeleClassic.Gameplay;
 using TeleClassic.Networking.Clientbound;
 using TeleClassic.Networking.Serverbound;
+using TeleClassic;
 
 namespace TeleClassic.Networking
 {
+
     public sealed partial class PlayerSession : IDisposable
     {
+        public sealed class PrintCommandAction : CommandProcessor.PrintCommandAction
+        {
+            PlayerSession playerSession;
+
+            public PrintCommandAction(PlayerSession playerSession)
+            {
+                this.playerSession = playerSession;
+            }
+
+            public override void Print(string message) => playerSession.Message(message);
+        }
+
+        public sealed class GetCurrentPlayer : CommandProcessor.CommandAction
+        {
+            public int GetExpectedArgumentCount() => 0;
+            public bool ReturnsValue() => true;
+
+            public string GetName() => "cp";
+            public string GetDescription() => "Gets the current player(you).";
+
+            PlayerSession playerSession;
+
+            public GetCurrentPlayer(PlayerSession playerSession)
+            {
+                this.playerSession = playerSession;
+            }
+
+            public void Invoke(CommandProcessor commandProcessor) => commandProcessor.PushObject(new CommandProcessor.PlayerCommandObject(new List<PlayerSession>() { playerSession }));
+        }
+
+        public sealed class GetCurrentWorld : CommandProcessor.CommandAction
+        {
+            public int GetExpectedArgumentCount() => 0;
+            public bool ReturnsValue() => true;
+
+            public string GetName() => "cw";
+            public string GetDescription() => "Gets the current world you are in.";
+
+            PlayerSession playerSession;
+
+            public GetCurrentWorld(PlayerSession playerSession)
+            {
+                this.playerSession = playerSession;
+            }
+
+            public void Invoke(CommandProcessor commandProcessor) => commandProcessor.PushObject(new CommandProcessor.WorldCommandObject(new List<MultiplayerWorld>() { playerSession.currentWorld }));
+        }
+
         public static Dictionary<byte, int> expectedBytes = new Dictionary<byte, int>()
         {
             {0x00, 130}, //identification
@@ -24,20 +74,25 @@ namespace TeleClassic.Networking
         public bool IsMuted;
         public readonly IPAddress Address;
 
-        private Server server;
-        private volatile TcpClient client;
-        private volatile NetworkStream networkStream;
-        private volatile bool disposed;
+        Server server;
+        volatile TcpClient client;
+        volatile NetworkStream networkStream;
+        volatile bool disposed;
 
-        private readonly Dictionary<byte, PacketHandler> packetHandlers;
+        readonly Dictionary<byte, PacketHandler> packetHandlers;
 
-        private string guestName;
-        private Account account;
-        private MultiplayerWorld currentWorld;
-        private byte bufferedOpCode;
+        string guestName;
+        Account account;
+        MultiplayerWorld currentWorld;
+
+        CommandParser commandParser;
+        CommandProcessor commandProcessor;
+
+        byte bufferedOpCode;
+        volatile bool sendingPacket;
 
         public bool Disconnected { get; private set; }
-        public bool HasPackets { get => networkStream.DataAvailable; }
+        public bool HasPackets { get => Disconnected ? false : networkStream.DataAvailable; }
         public bool IsLoggedIn {get => account != null; }
 
         public Account Account
@@ -84,14 +139,16 @@ namespace TeleClassic.Networking
                 throw new InvalidOperationException("A banned player tried to connect.");
             }
 
-
             this.server = server;
             this.client = client;
+            this.client.LingerState.Enabled = true;
+            this.client.LingerState.LingerTime = 30;
             networkStream = client.GetStream();
             disposed = false;
             Disconnected = false;
             bufferedOpCode = byte.MaxValue;
             this.IsMuted = false;
+            this.sendingPacket = false;
 
             packetHandlers = new Dictionary<byte, PacketHandler>(){
                 {0   , handlePlayerId},
@@ -99,21 +156,29 @@ namespace TeleClassic.Networking
                 {0x05, handlePlayerSetBlock},
                 {0x0d, handlePlayerMessage}
             };
-
+            commandParser = new CommandParser(new PrintCommandAction(this));
+            commandParser.AddCommand(new GetCurrentPlayer(this));
+            commandParser.AddCommand(new GetCurrentWorld(this));
             Logger.Log("networking", "Accepted new client conncetion.", Address.ToString());
         }
 
         public bool SendPacket(Packet packet)
         {
+            while (sendingPacket) { }
+
+            bool stat;
             try
             {
+                sendingPacket = true;
                 packet.Send(networkStream);
-                return true;
+                stat = true;
             }
             catch
             {
-                return false;
+                stat = false;
             }
+            sendingPacket = false;
+            return stat;
         }
 
         public bool Ping()
@@ -132,7 +197,20 @@ namespace TeleClassic.Networking
             Dispose();
         }
 
-        public void Message(string message) => SendPacket(new MessagePacket(-1, message));
+        public void Message(string message)
+        {
+            message = message.Replace("\r",string.Empty);
+            if(message.Contains("\n"))
+            {
+                foreach (string line in message.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                    Message(line);
+            }
+            else
+            {
+                for (int i = 0; i < message.Length; i += 64)
+                    SendPacket(new MessagePacket(-1, message.Substring(i, Math.Min(message.Length - i, 64))));
+            }
+        }
 
         public void Dispose()
         {
@@ -144,17 +222,17 @@ namespace TeleClassic.Networking
         {
             if (!disposed)
             {
+                disposed = true;
                 if (disposing)
                 {
+                    Disconnected = true;
                     if (currentWorld != null)
                         currentWorld.LeaveWorld(this);
                     if (account != null)
                         server.AccountManager.Logout(account);
                     networkStream.Close();
                     client.Close();
-                    Disconnected = true;
                 }
-                disposed = true;
             }
         }
 
@@ -210,6 +288,7 @@ namespace TeleClassic.Networking
                 guestName = playerId.Name;
                 SendPacket(new IdentificationPacket("TeleClassic", e.Message, 0x07, 0x0));
             }
+            commandProcessor = new CommandProcessor(this.Permissions, commandParser.printCommandAction);
             this.JoinWorld(Program.worldManager.Lobby);
         }
 
@@ -246,9 +325,18 @@ namespace TeleClassic.Networking
                 Logger.Log("error/networking", "Client tried to send a message but hasn't joined a world.", Address.ToString());
                 throw new InvalidOperationException("Your Client has a bug: setting blocks whilst not in world.");
             }
-            if (messagePacket.Message.StartsWith('.'))
+            if (messagePacket.Message.StartsWith('.') || messagePacket.Message.StartsWith('/'))
             {
-
+                string command = messagePacket.Message.TrimStart('.', '/');
+                Message(command);
+                try
+                {
+                    commandProcessor.ExecuteCommand(commandParser.Compile(command));
+                }
+                catch(ArgumentException e)
+                {
+                    Message(e.Message);
+                }
             }
             else 
             {

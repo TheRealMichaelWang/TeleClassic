@@ -24,7 +24,7 @@ namespace TeleClassic.Networking
                 this.server = server;
             }
 
-            public void Invoke(CommandProcessor commandProcessor) => commandProcessor.PushObject(new CommandProcessor.PlayerCommandObject(server.sessions));
+            public void Invoke(CommandProcessor commandProcessor) => commandProcessor.PushObject(new CommandProcessor.PlayerCommandObject(new List<PlayerSession>(server.sessions)));
         }
 
         public static GetAllPlayersCommandAction getAllPlayersCommandAction = new GetAllPlayersCommandAction(Program.server);
@@ -90,8 +90,9 @@ namespace TeleClassic.Networking
 
 
                 foreach (PlayerSession session in sessions)
-                    if (!session.Disconnected && !session.Ping())
+                    if (session.Disconnected || !session.Ping())
                         closedSessions.Enqueue(session);
+
                 while (closedSessions.Count > 0)
                 {
                     PlayerSession toClose = closedSessions.Dequeue();

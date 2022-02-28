@@ -7,7 +7,6 @@ using static TeleClassic.CommandProcessor;
 
 namespace TeleClassic
 {
-
     public sealed class CommandProcessor
     {
         public interface CommandObject
@@ -87,7 +86,7 @@ namespace TeleClassic
             public void Invoke(CommandProcessor commandProcessor)
             {
                 foreach (CommandAction availibleCommand in availibleCommands)
-                    commandProcessor.Print(availibleCommand.GetName() + "\t" + availibleCommand.GetDescription());
+                    commandProcessor.Print(availibleCommand.GetName() + " - " + availibleCommand.GetDescription());
             }
         }
 
@@ -265,14 +264,16 @@ namespace TeleClassic
 
         public void ExecuteCommand(List<CommandAction> commands)
         {
-            try
+            foreach (CommandAction command in commands)
             {
-                foreach (CommandAction command in commands)
+                try
+                {
                     command.Invoke(this);
-            }
-            catch(ArgumentException e)
-            {
-                this.Print("Runtime Error: " + e.Message);
+                }
+                catch (ArgumentException e)
+                {
+                    this.Print("Runtime Error: " + e.Message + "\n while executing command "+command.GetName()+".");
+                }
             }
         }
 
@@ -364,7 +365,7 @@ namespace TeleClassic
         }
 
         private Dictionary<string, CommandAction> availibleCommands;
-        private PrintCommandAction printCommandAction;
+        public readonly PrintCommandAction printCommandAction;
         private HelpCommandAction helpCommandAction;
 
         public void AddCommand(CommandAction commandAction) => availibleCommands.Add(commandAction.GetName(), commandAction);
