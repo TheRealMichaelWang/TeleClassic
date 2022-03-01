@@ -64,8 +64,33 @@ namespace TeleClassic
             }
         }
 
+        public sealed class FindWorldCommandAction : CommandProcessor.CommandAction
+        {
+            public int GetExpectedArgumentCount() => 1;
+            public bool ReturnsValue() => true;
+
+            public string GetName() => "fw";
+            public string GetDescription() => "Finds a world on this server.";
+
+            WorldManager worldManager;
+
+            public FindWorldCommandAction(WorldManager worldManager)
+            {
+                this.worldManager = worldManager;
+            }
+
+            public void Invoke(CommandProcessor commandProcessor)
+            {
+                CommandProcessor.StringCommandObject worldId = (CommandProcessor.StringCommandObject)commandProcessor.PopObject(typeof(CommandProcessor.StringCommandObject));
+                if (!worldManager.HasWorld(worldId.String))
+                    throw new ArgumentException("Server doesn't have world \"" + worldId.String + "\".");
+                commandProcessor.PushObject(new CommandProcessor.WorldCommandObject(new List<MultiplayerWorld>(){ worldManager.GetWorld(worldId.String) }));
+            }
+        }
+
         public static GetWorldListCommandAction getWorldListCommandAction = new GetWorldListCommandAction(Program.worldManager);
         public static GeneratePersonalWorldCommandAction generatePersonalWorldCommandAction = new GeneratePersonalWorldCommandAction(Program.worldManager);
+        public static FindWorldCommandAction findWorldCommandAction = new FindWorldCommandAction(Program.worldManager);
 
         public MultiplayerWorld Lobby { get; private set; }
 
@@ -74,6 +99,8 @@ namespace TeleClassic
         private string personalWorldsDbFile;
 
         public bool HasWorld(string worldName) => worldLookup.ContainsKey(worldName);
+
+        public MultiplayerWorld GetWorld(string worldName) => worldLookup[worldName];
 
         public void AddWorld(MultiplayerWorld world) => worldLookup.Add(world.Name.StartsWith("worlds/") ? world.Name.Substring("worlds/".Length) : world.Name, world);
 

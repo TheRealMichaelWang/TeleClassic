@@ -70,7 +70,7 @@ namespace TeleClassic
 
         public sealed class HelpCommandAction : CommandAction
         {
-            List<CommandAction> availibleCommands;
+            CommandParser commandParser;
 
             public int GetExpectedArgumentCount() => 0;
             public bool ReturnsValue() => false;
@@ -78,15 +78,18 @@ namespace TeleClassic
             public string GetName() => "help";
             public string GetDescription() => "Lists commands and their descriptions.";
 
-            public HelpCommandAction(List<CommandAction> availibleCommands)
+            public HelpCommandAction(CommandParser commandParser)
             {
-                this.availibleCommands = availibleCommands;
+                this.commandParser = commandParser;
             }
 
             public void Invoke(CommandProcessor commandProcessor)
             {
-                foreach (CommandAction availibleCommand in availibleCommands)
-                    commandProcessor.Print(availibleCommand.GetName() + " - " + availibleCommand.GetDescription());
+                StringBuilder stringBuilder = new StringBuilder();
+                stringBuilder.AppendLine("There are " + commandParser.AvailibleCommands.Count + "availible command(s).");
+                foreach (CommandAction availibleCommand in commandParser.AvailibleCommands.Values)
+                    stringBuilder.AppendLine(availibleCommand.GetName() + " - " + availibleCommand.GetDescription());
+                commandProcessor.Print(stringBuilder.ToString());
             }
         }
 
@@ -171,7 +174,7 @@ namespace TeleClassic
             public bool ReturnsValue() => true;
 
             public string GetName() => "ep";
-            public string GetDescription() => "Finds a players whos username in a selection of players.";
+            public string GetDescription() => "Excludes a players whos username in a selection of players.";
 
             public void Invoke(CommandProcessor commandProcessor)
             {
@@ -190,7 +193,7 @@ namespace TeleClassic
         public sealed class MessageCommandAction : CommandAction
         {
             public int GetExpectedArgumentCount() => 2;
-            public bool ReturnsValue() => true;
+            public bool ReturnsValue() => false;
 
             public string GetName() => "m";
             public string GetDescription() => "Sends a message to a selection of players.";
@@ -273,6 +276,7 @@ namespace TeleClassic
                 catch (ArgumentException e)
                 {
                     this.Print("Runtime Error: " + e.Message + "\n while executing command "+command.GetName()+".");
+                    return;
                 }
             }
         }
@@ -364,18 +368,18 @@ namespace TeleClassic
             }
         }
 
-        private Dictionary<string, CommandAction> availibleCommands;
+        public Dictionary<string, CommandAction> AvailibleCommands;
         public readonly PrintCommandAction printCommandAction;
         private HelpCommandAction helpCommandAction;
 
-        public void AddCommand(CommandAction commandAction) => availibleCommands.Add(commandAction.GetName(), commandAction);
+        public void AddCommand(CommandAction commandAction) => AvailibleCommands.Add(commandAction.GetName(), commandAction);
 
         public CommandParser(PrintCommandAction printCommandAction)
         {
             this.printCommandAction = printCommandAction;
-            availibleCommands = new Dictionary<string, CommandAction>();
-            availibleCommands.Add("print", this.printCommandAction);
-            availibleCommands.Add("add", concatonateCommandAction);
+            AvailibleCommands = new Dictionary<string, CommandAction>();
+            AvailibleCommands.Add("print", this.printCommandAction);
+            AvailibleCommands.Add("add", concatonateCommandAction);
 
             AddCommand(MultiplayerWorld.getPlayerListCommandAction);
             AddCommand(findPlayersCommandAction);
@@ -383,11 +387,12 @@ namespace TeleClassic
             AddCommand(Server.getAllPlayersCommandAction);
             AddCommand(WorldManager.getWorldListCommandAction);
             AddCommand(WorldManager.generatePersonalWorldCommandAction);
+            AddCommand(WorldManager.findWorldCommandAction);
             AddCommand(messageCommandAction);
             AddCommand(Blacklist.kickPlayerCommandAction);
             AddCommand(Blacklist.banPlayerCommandAction);
             AddCommand(Blacklist.temporaryBanPlayerCommandAction);
-            AddCommand(helpCommandAction = new HelpCommandAction(this.availibleCommands.Values.ToList()));
+            AddCommand(helpCommandAction = new HelpCommandAction(this));
         }
 
         private void MatchNextTok(Lexer lexer, Token.TokenType tokenType)
@@ -410,9 +415,9 @@ namespace TeleClassic
                     break;
                 case Token.TokenType.Identifier:
                     {
-                        if (availibleCommands.ContainsKey(opTok.Identifier))
+                        if (AvailibleCommands.ContainsKey(opTok.Identifier))
                         {
-                            CommandAction command = availibleCommands[opTok.Identifier];
+                            CommandAction command = AvailibleCommands[opTok.Identifier];
                             if (!command.ReturnsValue())
                                 throw new ArgumentException("Command " + opTok.Identifier + " doesn't return a value.");
                             if (command.GetExpectedArgumentCount() > 0)
@@ -452,9 +457,9 @@ namespace TeleClassic
                     commands.Add(printCommandAction);
                     break;
                 case Token.TokenType.Identifier:
-                    if (!availibleCommands.ContainsKey(opTok.Identifier))
+                    if (!AvailibleCommands.ContainsKey(opTok.Identifier))
                         throw new ArgumentException("Unkown command " + opTok.Identifier + ".");
-                    CommandAction command = availibleCommands[opTok.Identifier];
+                    CommandAction command = AvailibleCommands[opTok.Identifier];
                     if (command.GetExpectedArgumentCount() > 0)
                     {
                         if(command.GetExpectedArgumentCount() > 1)

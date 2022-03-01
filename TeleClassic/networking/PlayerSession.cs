@@ -61,6 +61,30 @@ namespace TeleClassic.Networking
             public void Invoke(CommandProcessor commandProcessor) => commandProcessor.PushObject(new CommandProcessor.WorldCommandObject(new List<MultiplayerWorld>() { playerSession.currentWorld }));
         }
 
+        public sealed class GotoWorld : CommandProcessor.CommandAction
+        {
+            public int GetExpectedArgumentCount() => 1;
+            public bool ReturnsValue() => false;
+
+            public string GetName() => "go";
+            public string GetDescription() => "(You) Go to another world.";
+
+            PlayerSession playerSession;
+
+            public GotoWorld(PlayerSession playerSession)
+            {
+                this.playerSession = playerSession;
+            }
+
+            public void Invoke(CommandProcessor commandProcessor)
+            {
+                CommandProcessor.WorldCommandObject worldCommandObject = (CommandProcessor.WorldCommandObject)commandProcessor.PopObject(typeof(CommandProcessor.WorldCommandObject));
+                if (worldCommandObject.worlds.Count != 1)
+                    throw new ArgumentException("Expected exactly 1 world to go to.");
+                this.playerSession.JoinWorld(worldCommandObject.worlds[0]);
+            }
+        }
+
         public static Dictionary<byte, int> expectedBytes = new Dictionary<byte, int>()
         {
             {0x00, 130}, //identification
@@ -159,6 +183,7 @@ namespace TeleClassic.Networking
             commandParser = new CommandParser(new PrintCommandAction(this));
             commandParser.AddCommand(new GetCurrentPlayer(this));
             commandParser.AddCommand(new GetCurrentWorld(this));
+            commandParser.AddCommand(new GotoWorld(this));
             Logger.Log("networking", "Accepted new client conncetion.", Address.ToString());
         }
 

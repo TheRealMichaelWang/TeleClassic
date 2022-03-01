@@ -70,8 +70,9 @@ namespace TeleClassic.Gameplay
                 Blocks = new byte[XDim * YDim * ZDim];
 
                 FillBlocks(0, 0, 0, XDim, 1, ZDim, Gameplay.Blocks.Lavastill);
-                FillBlocks(0, 1, 0, XDim, 12, ZDim, Gameplay.Blocks.Stone);
-                FillBlocks(0, 13, 0, XDim, 3, ZDim, Gameplay.Blocks.Grass);
+                FillBlocks(0, 1, 0, XDim, 5, ZDim, Gameplay.Blocks.Stone);
+                FillBlocks(0, 6, 0, XDim, 14, ZDim, Gameplay.Blocks.Dirt);
+                FillBlocks(0, 15, 0, XDim, 1, ZDim, Gameplay.Blocks.Grass);
                 FillBlocks(0, 16, 0, XDim, (short)(YDim - 16), ZDim, Gameplay.Blocks.Air);
 
                 nBT.SetObject(string.Empty, new NBTCompound("MapGenerator", new List<NBTObject>()
