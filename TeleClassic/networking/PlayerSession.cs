@@ -109,7 +109,7 @@ namespace TeleClassic.Networking
         Account account;
         MultiplayerWorld currentWorld;
 
-        CommandParser commandParser;
+        public CommandParser CommandParser;
         CommandProcessor commandProcessor;
 
         byte bufferedOpCode;
@@ -126,6 +126,12 @@ namespace TeleClassic.Networking
                 if (account == null)
                     throw new InvalidOperationException("User is not logged in.");
                 return account;
+            }
+            set
+            {
+                if (value == null)
+                    throw new InvalidOperationException("Cannot set player account to null.");
+                this.account = value;
             }
         }
 
@@ -180,10 +186,10 @@ namespace TeleClassic.Networking
                 {0x05, handlePlayerSetBlock},
                 {0x0d, handlePlayerMessage}
             };
-            commandParser = new CommandParser(new PrintCommandAction(this));
-            commandParser.AddCommand(new GetCurrentPlayer(this));
-            commandParser.AddCommand(new GetCurrentWorld(this));
-            commandParser.AddCommand(new GotoWorld(this));
+            CommandParser = new CommandParser(new PrintCommandAction(this));
+            CommandParser.AddCommand(new GetCurrentPlayer(this));
+            CommandParser.AddCommand(new GetCurrentWorld(this));
+            CommandParser.AddCommand(new GotoWorld(this));
             Logger.Log("networking", "Accepted new client conncetion.", Address.ToString());
         }
 
@@ -312,8 +318,12 @@ namespace TeleClassic.Networking
             {
                 guestName = playerId.Name;
                 SendPacket(new IdentificationPacket("TeleClassic", e.Message, 0x07, 0x0));
+                if(Program.accountManager.UserExists(guestName))
+                    this.CommandParser.AddCommand(new Account.RegisterAccountCommandAction(Program.accountManager, this));
+                else
+                    this.CommandParser.AddCommand(new Account.RegisterAccountCommandAction(Program.accountManager, this, guestName));
             }
-            commandProcessor = new CommandProcessor(this.Permissions, commandParser.printCommandAction);
+            commandProcessor = new CommandProcessor(this.Permissions, CommandParser.printCommandAction);
             this.JoinWorld(Program.worldManager.Lobby);
         }
 
@@ -356,7 +366,7 @@ namespace TeleClassic.Networking
                 Message(command);
                 try
                 {
-                    commandProcessor.ExecuteCommand(commandParser.Compile(command));
+                    commandProcessor.ExecuteCommand(CommandParser.Compile(command));
                 }
                 catch(ArgumentException e)
                 {

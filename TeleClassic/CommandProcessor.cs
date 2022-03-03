@@ -373,7 +373,7 @@ namespace TeleClassic
         private HelpCommandAction helpCommandAction;
 
         public void AddCommand(CommandAction commandAction) => AvailibleCommands.Add(commandAction.GetName(), commandAction);
-
+        public void RemoveCommand(string name) => AvailibleCommands.Remove(name);
         public CommandParser(PrintCommandAction printCommandAction)
         {
             this.printCommandAction = printCommandAction;

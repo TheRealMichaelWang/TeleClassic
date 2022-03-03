@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using TeleClassic;
+using TeleClassic.Networking;
 
 namespace TeleClassic
 {
@@ -11,9 +13,78 @@ namespace TeleClassic
         Operator,
         Admin
     }
-
     public sealed class Account
     {
+        public sealed class RegisterAccountCommandAction : CommandProcessor.CommandAction
+        {
+            PlayerSession playerSession;
+            AccountManager accountManager;
+            string selectedUsername;
+            string selectedPassword;
+
+            public int GetExpectedArgumentCount() => selectedUsername == null ? 2 : 1;
+            public bool ReturnsValue() => false;
+
+            public string GetName() => "register";
+            public string GetDescription() => "registers an account on the server.";
+
+            public RegisterAccountCommandAction(AccountManager accountManager, PlayerSession playerSession)
+            {
+                this.accountManager = accountManager;
+                this.playerSession = playerSession;
+                this.selectedUsername = null;
+                this.selectedPassword = null;
+            }
+
+            public RegisterAccountCommandAction(AccountManager accountManager, PlayerSession playerSession, string selectedUsername) : this(accountManager, playerSession)
+            {
+                if (accountManager.UserExists(selectedUsername))
+                    throw new ArgumentException("Username has already been taken. Please select a unique username.");
+                this.selectedUsername = selectedUsername;
+            }
+            
+            public void Invoke(CommandProcessor commandProcessor)
+            {
+                if (this.selectedUsername == null) {
+                    string username = ((CommandProcessor.StringCommandObject)commandProcessor.PopObject(typeof(CommandProcessor.StringCommandObject))).String;
+                    if (accountManager.UserExists(username))
+                        commandProcessor.Print("The username \"" + username + "\" has already been taken.");
+                    else
+                        this.selectedUsername = username;
+                }
+                CommandProcessor.StringCommandObject password = (CommandProcessor.StringCommandObject)commandProcessor.PopObject(typeof(CommandProcessor.StringCommandObject));
+                if(this.selectedPassword == null)
+                {
+                    this.selectedPassword = password.String;
+                    commandProcessor.Print("To confirm your account registration:\nRetype \"/register [selected/already entered password]\".");
+                }
+                else
+                {
+                    if(this.selectedPassword != password.String)
+                    {
+                        commandProcessor.Print("Account registration succesfully canceled.");
+                        this.selectedPassword = null;
+                    }
+                    else
+                    {
+                        try
+                        {
+                            this.playerSession.Account = accountManager.Register(this.selectedUsername, this.selectedPassword, Permission.Member);
+                            commandProcessor.Print("Account registered succesfully.");
+                            this.playerSession.CommandParser.RemoveCommand(this.GetName());
+                        }
+                        catch(ArgumentException e)
+                        {
+                            commandProcessor.Print("An error occured whilst registering your account:\n" + e.Message);
+                            commandProcessor.Print("Account registration canceled.");
+                            this.selectedUsername = null;
+                            this.selectedPassword = null;
+                        }
+                    }
+                }
+            }
+        }
+
         public readonly string Username;
         public readonly string Password;
 
