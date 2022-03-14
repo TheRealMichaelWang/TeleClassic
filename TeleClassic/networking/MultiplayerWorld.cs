@@ -98,7 +98,7 @@ namespace TeleClassic.Networking
             Logger.Log("Info", "Player joined world " + this.Name + ".", playerSession.Name);
         }
 
-        public void LeaveWorld(PlayerSession playerSession)
+        public virtual void LeaveWorld(PlayerSession playerSession)
         {
             if (!playerIdMap.ContainsKey(playerSession))
                 throw new InvalidOperationException("Player has not joined world.");
