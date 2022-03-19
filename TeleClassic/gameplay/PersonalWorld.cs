@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using TeleClassic.Networking;
 
@@ -190,9 +191,8 @@ namespace TeleClassic.Gameplay
         public int BlocksPlaced;
         public int BlocksBroken;
 
+        Dictionary<PlayerSession, WorldEditor> worldEditorInstances;
         public bool CanBuild(PlayerSession playerSession) => ((playerSession.IsLoggedIn && playerSession.Account == Owner) || playerSession.Permissions == Permission.Admin);
-
-       
 
         public PersonalWorld(string fileName, Account owner, bool isPublic) : base(fileName, Permission.Member, Permission.Member, MultiplayerWorld.MaxPlayerCapacity)
         {
@@ -201,6 +201,7 @@ namespace TeleClassic.Gameplay
             this.LastEdit = DateTime.Now;
             this.BlocksPlaced = 0;
             this.BlocksBroken = 0;
+            this.worldEditorInstances = new Dictionary<PlayerSession, WorldEditor>();
         }
 
         public PersonalWorld(BinaryReader reader, AccountManager accountManager) : base(reader.ReadString(), Permission.Member, Permission.Member, MultiplayerWorld.MaxPlayerCapacity)
@@ -236,18 +237,22 @@ namespace TeleClassic.Gameplay
             this.LastEdit = new DateTime(reader.ReadInt64());
             this.BlocksPlaced = reader.ReadInt32();
             this.BlocksBroken = reader.ReadInt32();
+            this.worldEditorInstances = new Dictionary<PlayerSession, WorldEditor>();
         }
 
         public override void JoinWorld(PlayerSession playerSession)
         {
             if (!IsPublic && !CanBuild(playerSession))
                 throw new InvalidOperationException("The owner set this personal world to private.");
+            if (CanBuild(playerSession))
+                worldEditorInstances.Add(playerSession, new WorldEditor(this, playerSession));
             base.JoinWorld(playerSession);
         }
 
         public override void LeaveWorld(PlayerSession playerSession)
         {
-            if(playerSession == )
+            if (CanBuild(playerSession))
+                worldEditorInstances.Remove(playerSession);
             base.LeaveWorld(playerSession);
         }
 
@@ -259,12 +264,15 @@ namespace TeleClassic.Gameplay
                 return;
             }
 
-            base.SetBlock(playerSession, position, blockType);
-            if (blockType == Gameplay.Blocks.Air)
-                this.BlocksBroken++;
-            else
-                this.BlocksPlaced++;
-            this.LastEdit = DateTime.Now;
+            if (worldEditorInstances[playerSession].SetBlock(position, blockType))
+            {
+                base.SetBlock(playerSession, position, blockType);
+                if (blockType == Gameplay.Blocks.Air)
+                    this.BlocksBroken++;
+                else
+                    this.BlocksPlaced++;
+                this.LastEdit = DateTime.Now;
+            }
         }
 
         public void TransferOwnership(Account newOwner)

@@ -111,7 +111,7 @@ namespace TeleClassic.Networking
                         {
                             session.Kick(e.Message);
                             closedSessions.Enqueue(session);
-                            Logger.Log("networking/security", "Kicked player from server because of an invalid operation.", "None");
+                            Logger.Log("networking/security", "Kicked player from server because of an invalid operation.", session.Name);
                         }
                     }
             }

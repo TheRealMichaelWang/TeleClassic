@@ -6,6 +6,7 @@ using System.Threading;
 using TeleClassic.Gameplay;
 using TeleClassic.Networking.Clientbound;
 using TeleClassic.Networking.Serverbound;
+using TeleClassic.Networking.CEP;
 using TeleClassic;
 
 namespace TeleClassic.Networking
@@ -85,29 +86,39 @@ namespace TeleClassic.Networking
             }
         }
 
-        public static Dictionary<byte, int> expectedBytes = new Dictionary<byte, int>()
+        public sealed class PacketHandler
         {
-            {0x00, 130}, //identification
-            {0x05, 8}, //set block
-            {0x08, 9}, //position and orientation
-            {0x0d, 65}, //message
-        };
+            public delegate void Handler();
 
-        public delegate void PacketHandler();
+            public readonly byte OpCode;
+            public readonly int ExpectedBytes;
+            Handler handler;
 
+            public PacketHandler(byte opCode, int expectedBytes, Handler handler)
+            {
+                this.OpCode = opCode;
+                this.ExpectedBytes = expectedBytes;
+                this.handler = handler;
+            }
+
+            public void Invoke() => handler();
+        }
+
+        Dictionary<byte, PacketHandler> packetHandlers;
+       
         public bool IsMuted;
         public readonly IPAddress Address;
 
         Server server;
         volatile TcpClient client;
-        volatile NetworkStream networkStream;
+        public volatile NetworkStream networkStream;
+
         volatile bool disposed;
 
-        readonly Dictionary<byte, PacketHandler> packetHandlers;
-
-        string guestName;
+        string guestName = "unconnected";
         Account account;
         MultiplayerWorld currentWorld;
+        ExtensionManager extensionManager;
 
         public CommandParser CommandParser;
         CommandProcessor commandProcessor;
@@ -180,18 +191,30 @@ namespace TeleClassic.Networking
             this.IsMuted = false;
             this.sendingPacket = false;
 
-            packetHandlers = new Dictionary<byte, PacketHandler>(){
-                {0   , handlePlayerId},
-                {0x08, handlePlayerUpdatePosition},
-                {0x05, handlePlayerSetBlock},
-                {0x0d, handlePlayerMessage}
-            };
+            packetHandlers = new Dictionary<byte, PacketHandler>();
+
+            AddPacketHandler(new PacketHandler(0, 130, handlePlayerId));
+            AddPacketHandler(new PacketHandler(0x08, 9, handlePlayerUpdatePosition));
+            AddPacketHandler(new PacketHandler(0x05, 8, handlePlayerSetBlock));
+            AddPacketHandler(new PacketHandler(0x0d, 65, handlePlayerMessage));
+
             CommandParser = new CommandParser(new PrintCommandAction(this));
             CommandParser.AddCommand(new GetCurrentPlayer(this));
             CommandParser.AddCommand(new GetCurrentWorld(this));
             CommandParser.AddCommand(new GotoWorld(this));
+
+            extensionManager = new ExtensionManager(this);
             Logger.Log("networking", "Accepted new client conncetion.", Address.ToString());
         }
+
+        public void AddPacketHandler(PacketHandler packetHandler)
+        {
+            if (packetHandlers.ContainsKey(packetHandler.OpCode))
+                throw new ArgumentException("Packet handler already registered with the same opcode.");
+            packetHandlers.Add(packetHandler.OpCode, packetHandler);
+        }
+
+        public void RemovePacketHandler(byte opCode) => packetHandlers.Remove(opCode);
 
         public bool SendPacket(Packet packet)
         {
@@ -292,39 +315,11 @@ namespace TeleClassic.Networking
                     throw new InvalidOperationException("Your Client has a bug: Received invalid packet ID.");
                 }
             }
-            else if(client.Available >= expectedBytes[bufferedOpCode])
+            else if(client.Available >= packetHandlers[bufferedOpCode].ExpectedBytes)
             {
-                packetHandlers[bufferedOpCode]();
+                packetHandlers[bufferedOpCode].Invoke();
                 bufferedOpCode = byte.MaxValue;
             }
-        }
-
-        public void handlePlayerId()
-        {
-            IdentificationPacket playerId = new IdentificationPacket(networkStream);
-
-            if (playerId.ProtocolVersion != 0x07)
-            {
-                Logger.Log("error/networking", "Client used invalid protocol version.", Address.ToString());
-                throw new InvalidOperationException("Invalid Protocol Version.");
-            }
-
-            try
-            {
-                account = server.AccountManager.Login(playerId.Name, playerId.Key);
-                SendPacket(new IdentificationPacket("TeleClassic", "You've sucesfully logged in.", 0x07, (account.Permissions >= Permission.Operator) ? (byte)0x64 : (byte)0x0));
-            }
-            catch (ArgumentException e)
-            {
-                guestName = playerId.Name;
-                SendPacket(new IdentificationPacket("TeleClassic", e.Message, 0x07, 0x0));
-                if(Program.accountManager.UserExists(guestName))
-                    this.CommandParser.AddCommand(new Account.RegisterAccountCommandAction(Program.accountManager, this));
-                else
-                    this.CommandParser.AddCommand(new Account.RegisterAccountCommandAction(Program.accountManager, this, guestName));
-            }
-            commandProcessor = new CommandProcessor(this.Permissions, CommandParser.printCommandAction);
-            this.JoinWorld(Program.worldManager.Lobby);
         }
 
         public void handlePlayerUpdatePosition()

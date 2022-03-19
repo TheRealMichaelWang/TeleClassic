@@ -19,6 +19,7 @@ namespace TeleClassic.Networking
         public void WriteSByte(sbyte b) => writer.Write(b);
 
         public void WriteShort(short s) => writer.Write(IPAddress.HostToNetworkOrder(s));
+        public void WriteInt(int i) => writer.Write(IPAddress.HostToNetworkOrder(i));
 
         public void WriteString(string s)
         {
@@ -44,6 +45,7 @@ namespace TeleClassic.Networking
         public sbyte ReadSByte() => reader.ReadSByte();
 
         public short ReadShort() => IPAddress.NetworkToHostOrder(reader.ReadInt16());
+        public int ReadInt() => IPAddress.NetworkToHostOrder(reader.ReadInt32());
 
         public string ReadString()
         {

@@ -4,6 +4,7 @@ using System.IO;
 using TeleClassic;
 using TeleClassic.Gameplay;
 using TeleClassic.Networking;
+using TeleClassic.Networking.CEP;
 
 class Program
 {
@@ -20,6 +21,8 @@ class Program
 
     public static void Main(string[] args)
     {
+        ExtensionManager.DeclareSupport("PlayerClick", 1);
+
         Logger.Log("Info", "Begun loading worlds.", "None");
 
         Logger.Log("Info", "Begun starting.", "None");
