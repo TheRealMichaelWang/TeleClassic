@@ -21,7 +21,11 @@ class Program
 
     public static void Main(string[] args)
     {
-        ExtensionManager.DeclareSupport("PlayerClick", 1);
+        ProtocolExtensionManager.DeclareSupport("PlayerClick", 1);
+        ProtocolExtensionManager.DeclareSupport("SelectionCuboid", 1);
+        ProtocolExtensionManager.DeclareSupport("TextHotKey", 1);
+        ProtocolExtensionManager.DeclareSupport("MessageTypes", 1);
+        ProtocolExtensionManager.DeclareSupport("HeldBlock", 1);
 
         Logger.Log("Info", "Begun loading worlds.", "None");
 
@@ -38,7 +42,6 @@ class Program
         
         server.Start();
         Logger.Log("Info", "Finished starting.", "None");
-
 
         if (!accountManager.UserExists("michaelw"))
             accountManager.Logout(accountManager.Register("michaelw", "iamgod", Permission.Admin));

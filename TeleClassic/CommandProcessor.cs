@@ -86,7 +86,7 @@ namespace TeleClassic
             public void Invoke(CommandProcessor commandProcessor)
             {
                 StringBuilder stringBuilder = new StringBuilder();
-                stringBuilder.AppendLine("There are " + commandParser.AvailibleCommands.Count + "availible command(s).");
+                stringBuilder.AppendLine("There are " + commandParser.AvailibleCommands.Count + " availible command(s).");
                 foreach (CommandAction availibleCommand in commandParser.AvailibleCommands.Values)
                     stringBuilder.AppendLine(availibleCommand.GetName() + " - " + availibleCommand.GetDescription());
                 commandProcessor.Print(stringBuilder.ToString());
@@ -207,7 +207,7 @@ namespace TeleClassic
                     throw new ArgumentException("Insufficient permissions to send batch messages.");
 
                 foreach (PlayerSession player in players.playerSessions)
-                    player.Message(message.String);
+                    player.Message(message.String, false);
             }
         }
         
@@ -298,6 +298,8 @@ namespace TeleClassic
                 Comma,
                 OpenParen,
                 CloseParen,
+                Quote,
+                StringLiteral,
                 End
             }
 
@@ -361,6 +363,15 @@ namespace TeleClassic
                             return new Token(Token.TokenType.OpenParen, string.Empty);
                         case ')':
                             return new Token(Token.TokenType.CloseParen, string.Empty);
+                        case '\"':
+                        case '\'':
+                            {
+                                char quoteChar = c;
+                                StringBuilder stringBuilder = new StringBuilder();
+                                while (Position < Source.Length && (c = Source[Position++]) != quoteChar)
+                                    stringBuilder.Append(c);
+                                return new Token(Token.TokenType.StringLiteral, stringBuilder.ToString());
+                            }
                         default:
                             throw new ArgumentException("Unrecognized token '" + c + "'.");
                     }
@@ -439,6 +450,9 @@ namespace TeleClassic
                             commands.Add(new PushCommandObjectCommandAction(new StringCommandObject(opTok.Identifier)));
                         break;
                     }
+                case Token.TokenType.StringLiteral:
+                    commands.Add(new PushCommandObjectCommandAction(new StringCommandObject(opTok.Identifier)));
+                    break;
                 default:
                     throw new ArgumentException("Unexpected token " + opTok.Type + ".");
             }

@@ -13,10 +13,11 @@ namespace TeleClassic.Gameplay
             Z = z;
         }
 
-        public BlockPosition(PlayerPosition playerPosition) : this((short)(playerPosition.X / 32), (short)((playerPosition.Y - 51) / 32), (short)(playerPosition.Z / 32))
-        {
+        public BlockPosition(PlayerPosition playerPosition) : this((short)(playerPosition.X / 32), (short)((playerPosition.Y - 51) / 32), (short)(playerPosition.Z / 32)) {}
 
-        }
+        public BlockPosition(BlockPosition start, short xOffset, short yOffset, short zOffset) : this((short)(start.X + xOffset), (short)(start.Y + yOffset), (short)(start.Z + zOffset)) { }
+
+        public override string ToString() => this.X + ", " + this.Y + ", " + this.Z;
     }
 
     public sealed partial class PlayerPosition : BlockPosition
@@ -44,9 +45,6 @@ namespace TeleClassic.Gameplay
             Pitch = pitch;
         }
 
-        public PlayerPosition(BlockPosition blockPosition, byte heading, byte pitch) : this((short)(blockPosition.X * 32), (short)(blockPosition.Y * 32 + 51), (short)(blockPosition.Z * 32), heading, pitch)
-        {
-
-        }
+        public PlayerPosition(BlockPosition blockPosition, byte heading, byte pitch) : this((short)(blockPosition.X * 32), (short)(blockPosition.Y * 32 + 51), (short)(blockPosition.Z * 32), heading, pitch) {}
     }
 }

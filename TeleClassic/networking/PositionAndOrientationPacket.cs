@@ -1,3 +1,4 @@
+using System;
 using System.Net.Sockets;
 using TeleClassic.Gameplay;
 
@@ -27,6 +28,33 @@ namespace TeleClassic.Networking
             writer.WriteByte(0x08);
             writer.WriteSByte(PlayerID);
             Position.WriteBack(writer);
+        }
+    }
+
+    public partial class PlayerSession
+    {
+        public byte HeldBlock
+        {
+            get
+            {
+                if (currentWorld == null || !ExtensionManager.SupportsExtension("HeldBlock"))
+                    throw new InvalidOperationException();
+                return lastHeldBlock;
+            }
+        }
+
+        byte lastHeldBlock;
+
+        public void handlePlayerUpdatePosition()
+        {
+            PositionAndOrientationPacket newPosition = new PositionAndOrientationPacket(networkStream);
+            if (currentWorld == null)
+            {
+                Logger.Log("error/networking", "Client tried to update position but hasn't joined a world.", Address.ToString());
+                throw new InvalidOperationException("Your Client has a bug: Updating position whilst not in world.");
+            }
+            lastHeldBlock = (byte)newPosition.PlayerID;
+            currentWorld.UpdatePosition(this, newPosition.Position);
         }
     }
 }

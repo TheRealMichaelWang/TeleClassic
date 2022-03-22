@@ -5,7 +5,6 @@ using TeleClassic.Networking.Clientbound;
 
 namespace TeleClassic.Networking
 {
-
     public class MultiplayerWorld : World
     {
         public sealed class GetPlayerListCommandAction : CommandProcessor.CommandAction
@@ -45,6 +44,7 @@ namespace TeleClassic.Networking
         public int PlayerCapacity { get; private set; }
 
         public bool InWorld(PlayerSession player) => playerIdMap.ContainsKey(player);
+        public PlayerPosition GetPlayerPosition(PlayerSession player) => playerPositionMap[player];
 
         public MultiplayerWorld(string fileName, Permission minimumBuildPerms, Permission minimumJoinPerms, int playerCapacity) : base(fileName)
         {
@@ -135,7 +135,7 @@ namespace TeleClassic.Networking
         {
             if (playerSession.Permissions < this.minimumBuildPerms)
             {
-                playerSession.Message("&cInsufficient permissions to build.");
+                playerSession.Message("&cInsufficient permissions to build.", false);
                 playerSession.SendPacket(new SetBlockPacket(position, GetBlock(position)));
                 return;
             }
@@ -148,14 +148,20 @@ namespace TeleClassic.Networking
         public void MessageAllPlayers(string message)
         {
             foreach (PlayerSession player in playersInWorld)
-                player.Message(message);
+                player.Message(message, false);
+        }
+
+        public void MessageAllPlayers(MessagePacket messagePacket)
+        {
+            foreach (PlayerSession player in playersInWorld)
+                player.SendPacket(messagePacket);
         }
 
         public void MessageFromPlayer(PlayerSession playerSession, string message)
         {
             if (playerSession.IsMuted)
             {
-                playerSession.Message("&cShut the fuck up, you are muted.");
+                playerSession.Message("&cShut the fuck up, you are muted.", false);
                 return;
             }
             MessageAllPlayers("&a" + playerSession.Name+":&e"+ message);

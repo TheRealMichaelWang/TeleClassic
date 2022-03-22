@@ -2,12 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 using TeleClassic.Gameplay;
-using TeleClassic.Networking.Clientbound;
-using TeleClassic.Networking.Serverbound;
 using TeleClassic.Networking.CEP;
-using TeleClassic;
+using TeleClassic.Networking.Clientbound;
 
 namespace TeleClassic.Networking
 {
@@ -23,7 +20,7 @@ namespace TeleClassic.Networking
                 this.playerSession = playerSession;
             }
 
-            public override void Print(string message) => playerSession.Message(message);
+            public override void Print(string message) => playerSession.Message(message, true);
         }
 
         public sealed class GetCurrentPlayer : CommandProcessor.CommandAction
@@ -118,7 +115,7 @@ namespace TeleClassic.Networking
         string guestName = "unconnected";
         Account account;
         MultiplayerWorld currentWorld;
-        ExtensionManager extensionManager;
+        public ProtocolExtensionManager ExtensionManager;
 
         public CommandParser CommandParser;
         CommandProcessor commandProcessor;
@@ -203,7 +200,7 @@ namespace TeleClassic.Networking
             CommandParser.AddCommand(new GetCurrentWorld(this));
             CommandParser.AddCommand(new GotoWorld(this));
 
-            extensionManager = new ExtensionManager(this);
+            ExtensionManager = new ProtocolExtensionManager(this);
             Logger.Log("networking", "Accepted new client conncetion.", Address.ToString());
         }
 
@@ -249,21 +246,6 @@ namespace TeleClassic.Networking
         {
             SendPacket(new DisconnectPlayerPacket(reason));
             Dispose();
-        }
-
-        public void Message(string message)
-        {
-            message = message.Replace("\r",string.Empty);
-            if(message.Contains("\n"))
-            {
-                foreach (string line in message.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                    Message(line);
-            }
-            else
-            {
-                for (int i = 0; i < message.Length; i += 64)
-                    SendPacket(new MessagePacket(-1, message.Substring(i, Math.Min(message.Length - i, 64))));
-            }
         }
 
         public void Dispose()
@@ -322,15 +304,39 @@ namespace TeleClassic.Networking
             }
         }
 
-        public void handlePlayerUpdatePosition()
+        public void finalizeIdHandshake()
         {
-            PositionAndOrientationPacket newPosition = new PositionAndOrientationPacket(networkStream);
-            if(currentWorld == null)
+            if (ExtensionManager.SupportsExtension("PlayerClick"))
+                AddPacketHandler(new PacketHandler(0x22, 14, handlePlayerClick));
+
+            if (playerId.ProtocolVersion != 0x07)
             {
-                Logger.Log("error/networking", "Client tried to update position but hasn't joined a world.", Address.ToString());
-                throw new InvalidOperationException("Your Client has a bug: Updating position whilst not in world.");
+                Logger.Log("error/networking", "Client used invalid protocol version.", Address.ToString());
+                throw new InvalidOperationException("Invalid Protocol Version.");
             }
-            currentWorld.UpdatePosition(this, newPosition.Position);
+
+            try
+            {
+                account = server.AccountManager.Login(playerId.Name, playerId.Key);
+                SendPacket(new IdentificationPacket("TeleClassic", "You've sucesfully logged in.", 0x07, (account.Permissions >= Permission.Operator) ? (byte)0x64 : (byte)0x0));
+            }
+            catch (ArgumentException e)
+            {
+                guestName = playerId.Name;
+                SendPacket(new IdentificationPacket("TeleClassic", e.Message, 0x07, 0x0));
+                if (Program.accountManager.UserExists(guestName))
+                    this.CommandParser.AddCommand(new Account.RegisterAccountCommandAction(Program.accountManager, this));
+                else
+                    this.CommandParser.AddCommand(new Account.RegisterAccountCommandAction(Program.accountManager, this, guestName));
+            }
+
+            if (ExtensionManager.SupportsExtension("TextHotKey"))
+            {
+                SendPacket(new SetTextHotkeyPacket("next line", "next\n", 49, SetTextHotkeyPacket.KeyModCtrl));
+            }
+
+            commandProcessor = new CommandProcessor(this.Permissions, CommandParser.printCommandAction);
+            this.JoinWorld(Program.worldManager.Lobby);
         }
 
         public void handlePlayerSetBlock()
@@ -345,33 +351,6 @@ namespace TeleClassic.Networking
                 currentWorld.SetBlock(this, setBlockPacket.Position, setBlockPacket.BlockType);
             else
                 currentWorld.SetBlock(this, setBlockPacket.Position, Blocks.Air);
-        }
-
-        public void handlePlayerMessage()
-        {
-            MessagePacket messagePacket = new MessagePacket(networkStream);
-            if (currentWorld == null)
-            {
-                Logger.Log("error/networking", "Client tried to send a message but hasn't joined a world.", Address.ToString());
-                throw new InvalidOperationException("Your Client has a bug: setting blocks whilst not in world.");
-            }
-            if (messagePacket.Message.StartsWith('.') || messagePacket.Message.StartsWith('/'))
-            {
-                string command = messagePacket.Message.TrimStart('.', '/');
-                Message(command);
-                try
-                {
-                    commandProcessor.ExecuteCommand(CommandParser.Compile(command));
-                }
-                catch(ArgumentException e)
-                {
-                    Message(e.Message);
-                }
-            }
-            else 
-            {
-                currentWorld.MessageFromPlayer(this, messagePacket.Message);
-            }
         }
     }
 }
