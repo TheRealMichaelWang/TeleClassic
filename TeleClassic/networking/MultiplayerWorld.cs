@@ -5,7 +5,7 @@ using TeleClassic.Networking.Clientbound;
 
 namespace TeleClassic.Networking
 {
-    public class MultiplayerWorld : World
+    public partial class MultiplayerWorld : World
     {
         public sealed class GetPlayerListCommandAction : CommandProcessor.CommandAction
         {
@@ -124,25 +124,20 @@ namespace TeleClassic.Networking
                     otherPlayer.SendPacket(new PositionAndOrientationPacket(playerIdMap[playerSession], newPosition));
         }
 
-        public override void SetBlock(BlockPosition position, byte blockType)
-        {
-            base.SetBlock(position, blockType);
-            foreach (PlayerSession otherPlayer in playersInWorld)
-                otherPlayer.SendPacket(new SetBlockPacket(position, blockType));
-        }
-
         public virtual void SetBlock(PlayerSession playerSession, BlockPosition position, byte blockType)
         {
             if (playerSession.Permissions < this.minimumBuildPerms)
             {
                 playerSession.Message("&cInsufficient permissions to build.", false);
-                playerSession.SendPacket(new SetBlockPacket(position, GetBlock(position)));
+                playerSession.SetBlock(position, GetBlock(position));
                 return;
             }
+            while (bulkBlockUpdateMode){}
+
             base.SetBlock(position, blockType);
             foreach (PlayerSession otherPlayer in playersInWorld)
                 if (otherPlayer != playerSession)
-                    otherPlayer.SendPacket(new SetBlockPacket(position, blockType));
+                    otherPlayer.SetBlock(position, blockType);
         }
 
         public void MessageAllPlayers(string message)

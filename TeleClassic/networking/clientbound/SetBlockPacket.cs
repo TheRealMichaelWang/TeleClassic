@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using TeleClassic.Gameplay;
+using TeleClassic.Networking.Clientbound;
 
 namespace TeleClassic.Networking.Clientbound
 {
@@ -20,6 +21,20 @@ namespace TeleClassic.Networking.Clientbound
             writer.WriteByte(0x06);
             Position.WriteBack(writer);
             writer.WriteByte(BlockType);
+        }
+    }
+}
+
+namespace TeleClassic.Networking
+{
+    public partial class PlayerSession
+    {
+        public void SetBlock(BlockPosition blockPosition, byte blockType)
+        {
+            if (SupportsBlock(blockType))
+                this.SendPacket(new SetBlockPacket(blockPosition, blockType));
+            else
+                this.SendPacket(new SetBlockPacket(blockPosition, ExtendedBlocks.GetExtendedBlockFallback(blockType)));
         }
     }
 }

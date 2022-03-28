@@ -6,4 +6,10 @@
 		<StartupObject>Program</StartupObject>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Update="lobby.cw">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

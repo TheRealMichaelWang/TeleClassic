@@ -27,6 +27,7 @@ class Program
         ProtocolExtensionManager.DeclareSupport("MessageTypes", 1);
         ProtocolExtensionManager.DeclareSupport("HeldBlock", 1);
         ProtocolExtensionManager.DeclareSupport("CustomBlocks", 1);
+        ProtocolExtensionManager.DeclareSupport("BulkBlockUpdate", 1);
 
         Logger.Log("Info", "Begun loading worlds.", "None");
 

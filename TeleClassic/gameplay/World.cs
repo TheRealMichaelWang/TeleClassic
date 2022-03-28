@@ -24,7 +24,7 @@ namespace TeleClassic.Gameplay
 
         public readonly byte FormatVersion; //who gives a fuck?
 
-        private int IndexFromPosition(BlockPosition position) => (position.Y * ZDim + position.Z) * XDim + position.X;
+        protected int IndexFromPosition(BlockPosition position) => (position.Y * ZDim + position.Z) * XDim + position.X;
         protected bool edited;
 
         protected void FillBlocks(short x, short y, short z, short xDim, short yDim, short zDim, byte blockType)
