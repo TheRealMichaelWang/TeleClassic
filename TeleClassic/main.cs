@@ -5,7 +5,6 @@ using TeleClassic;
 using TeleClassic.Gameplay;
 using TeleClassic.Networking;
 using TeleClassic.Networking.CEP;
-
 class Program
 {
     class ConsolePrintCommandAction : CommandProcessor.PrintCommandAction {
@@ -15,6 +14,7 @@ class Program
     public static Server server;
     public static AccountManager accountManager;
     public static WorldManager worldManager;
+    public static MiniGameMarshaller miniGameMarshaller;
     public static Blacklist blacklist;
 
     static ConsolePrintCommandAction ConsolePrintCommand = new ConsolePrintCommandAction();
@@ -28,6 +28,7 @@ class Program
         ProtocolExtensionManager.DeclareSupport("HeldBlock", 1);
         ProtocolExtensionManager.DeclareSupport("CustomBlocks", 1);
         ProtocolExtensionManager.DeclareSupport("BulkBlockUpdate", 1);
+        ProtocolExtensionManager.DeclareSupport("HackControl", 1);
 
         Logger.Log("Info", "Begun loading worlds.", "None");
 
@@ -38,10 +39,12 @@ class Program
         blacklist = new Blacklist("blacklist.db");
         server = new Server(25565, accountManager, blacklist);
         worldManager = new WorldManager(new MultiplayerWorld("fuck.cw", Permission.Admin, Permission.Member, MultiplayerWorld.MaxPlayerCapacity), accountManager, "worlds.db");
+        miniGameMarshaller = new MiniGameMarshaller();
 
         CommandProcessor commandProcessor = new CommandProcessor(Permission.Admin, ConsolePrintCommand);
         CommandParser commandParser = new CommandParser(ConsolePrintCommand);
-        
+        commandParser.AddCommand(new MiniGameMarshaller.AddMinigameCommandAction(miniGameMarshaller));
+
         server.Start();
         Logger.Log("Info", "Finished starting.", "None");
 
@@ -80,9 +83,11 @@ class Program
     {
         Logger.Log("Info", "Begun stopping.", "None");
         server.Stop();
+        miniGameMarshaller.Stop();
         accountManager.Save();
         worldManager.Save();
         blacklist.Save();
+        miniGameMarshaller.Save();
         Logger.Log("Info", "Finished stopping.", "None");
 
         Logger.EndSession();

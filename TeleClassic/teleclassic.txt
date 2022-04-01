@@ -1,0 +1,22 @@
+﻿$TELECLASSIC - Written by Michael Wang, 2022
+$Use this file as a wrapper to interact with TeleClassic
+
+$config information
+record minigame_config {
+	array<char> name;
+	array<char> motd;
+	array<char> author;
+	array<char> workingDir;
+}
+
+$sets the configurations for your minigame. You can only call this function once, and you must do so within 3 seconds of initialization.
+global readonly auto minigame_set_config = proc(minigame_config config) return nothing {
+	foreign[18](config);
+	return;
+};
+
+$logs some information to the console. Use this information to debug.
+global readonly auto minigame_log = proc(array<char> info) return nothing {
+	foreign[19](info);
+	return;
+};

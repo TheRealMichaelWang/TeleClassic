@@ -8,7 +8,6 @@ using TeleClassic.Networking.Clientbound;
 
 namespace TeleClassic.Networking
 {
-
     public sealed partial class PlayerSession : IDisposable
     {
         public sealed class PrintCommandAction : CommandProcessor.PrintCommandAction
@@ -337,6 +336,7 @@ namespace TeleClassic.Networking
 
             commandProcessor = new CommandProcessor(this.Permissions, CommandParser.printCommandAction);
             this.JoinWorld(Program.worldManager.Lobby);
+            this.ResetHackControl();
         }
 
         public void handlePlayerSetBlock()

@@ -41,7 +41,7 @@ namespace TeleClassic
             public bool ReturnsValue() => false;
 
             public string GetName() => "tban";
-            public string GetDescription() => "Permanantley bans a player.";
+            public string GetDescription() => "Temporarily bans a player.";
 
             Blacklist blacklist;
 

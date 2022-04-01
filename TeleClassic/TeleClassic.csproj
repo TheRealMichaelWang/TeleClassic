@@ -7,8 +7,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="superforthdllcsharp">
+      <HintPath>..\superforthdll\superforthdllcsharp\bin\Release\net5.0\superforthdllcsharp.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="teleclassic.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="lobby.cw">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="superforthdll.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 

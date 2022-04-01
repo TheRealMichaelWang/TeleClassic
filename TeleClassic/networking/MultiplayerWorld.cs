@@ -7,6 +7,12 @@ namespace TeleClassic.Networking
 {
     public partial class MultiplayerWorld : World
     {
+        public enum PlayerJoinMode
+        {
+            Player,
+            Spectator
+        }
+
         public sealed class GetPlayerListCommandAction : CommandProcessor.CommandAction
         {
             public int GetExpectedArgumentCount() => 1;
@@ -29,19 +35,20 @@ namespace TeleClassic.Networking
         }
 
         public static readonly GetPlayerListCommandAction getPlayerListCommandAction = new GetPlayerListCommandAction();
-
         public static readonly int MaxPlayerCapacity = 127;
+
 
         private List<PlayerSession> playersInWorld;
         
         private Dictionary<PlayerSession, sbyte> playerIdMap;
         private Dictionary<PlayerSession, PlayerPosition> playerPositionMap;
+        private Dictionary<PlayerSession, PlayerJoinMode> playerJoinMode;
         private Queue<sbyte> availibleIds;
 
         private Permission minimumBuildPerms;
         private Permission minimumJoinPerms;
 
-        public int PlayerCapacity { get; private set; }
+        public readonly int PlayerCapacity;
 
         public bool InWorld(PlayerSession player) => playerIdMap.ContainsKey(player);
         public PlayerPosition GetPlayerPosition(PlayerSession player) => playerPositionMap[player];
@@ -50,20 +57,24 @@ namespace TeleClassic.Networking
         {
             this.minimumBuildPerms = minimumBuildPerms;
             this.minimumJoinPerms = minimumJoinPerms;
+
+            if (playerCapacity > MultiplayerWorld.MaxPlayerCapacity)
+                throw new ArgumentException("Player capacity cannot be greater than 128.", "playerCapacity");
             this.PlayerCapacity = playerCapacity;
 
-            playersInWorld = new List<PlayerSession>(playerCapacity);
             playerIdMap = new Dictionary<PlayerSession, sbyte>(playerCapacity);
             playerPositionMap = new Dictionary<PlayerSession, PlayerPosition>(playerCapacity);
+            playersInWorld = new List<PlayerSession>(playerCapacity);
+            playerJoinMode = new Dictionary<PlayerSession, PlayerJoinMode>(playerCapacity);
 
-            if (playerCapacity > 127)
-                throw new ArgumentException("Player capacity cannot be greater than 128.", "playerCapacity");
             availibleIds = new Queue<sbyte>(playerCapacity);
             for (sbyte i = 0; i < playerCapacity; i++)
                 availibleIds.Enqueue(i);
         }
 
-        public virtual void JoinWorld(PlayerSession playerSession)
+        public virtual void JoinWorld(PlayerSession playerSession) => JoinWorld(playerSession, PlayerJoinMode.Player);
+
+        public void JoinWorld(PlayerSession playerSession, PlayerJoinMode joinMode)
         {
             if (playerSession.Permissions < minimumJoinPerms)
             {
@@ -82,16 +93,22 @@ namespace TeleClassic.Networking
                 playerSession.Kick("Your Client has a bug: Joining already joined world.");
                 Logger.Log("error/gameplay", "Client tried to join world they already joined.", playerSession.Name);
             }
+
             sbyte id = availibleIds.Dequeue();
             playerIdMap[playerSession] = id;
             playerPositionMap[playerSession] = this.SpawnPoint;
+            playerJoinMode[playerSession] = joinMode;
 
             playerSession.SendWorld(this);
             playerSession.SendPacket(new SpawnPlayerPacket(-1, playerSession.Name, this.SpawnPoint));
-            foreach (PlayerSession otherPlayer in playersInWorld)
+
+            if (joinMode == PlayerJoinMode.Player)
             {
-                otherPlayer.SendPacket(new SpawnPlayerPacket(id, playerSession.Name, this.SpawnPoint));
-                playerSession.SendPacket(new SpawnPlayerPacket(playerIdMap[otherPlayer], otherPlayer.Name, playerPositionMap[otherPlayer]));
+                foreach (PlayerSession otherPlayer in playersInWorld)
+                {
+                    otherPlayer.SendPacket(new SpawnPlayerPacket(id, playerSession.Name, this.SpawnPoint));
+                    playerSession.SendPacket(new SpawnPlayerPacket(playerIdMap[otherPlayer], otherPlayer.Name, playerPositionMap[otherPlayer]));
+                }
             }
 
             playersInWorld.Add(playerSession);
@@ -105,11 +122,18 @@ namespace TeleClassic.Networking
 
             sbyte id = playerIdMap[playerSession];
             playersInWorld.Remove(playerSession);
-            foreach (PlayerSession otherPlayer in playersInWorld)
-                otherPlayer.SendPacket(new DespawnPlayerPacket(id));
+
+            if (playerJoinMode[playerSession] == PlayerJoinMode.Player)
+            {
+                foreach (PlayerSession otherPlayer in playersInWorld)
+                    otherPlayer.SendPacket(new DespawnPlayerPacket(id));
+            }
+            
             availibleIds.Enqueue(id);
             playerIdMap.Remove(playerSession);
             playerPositionMap.Remove(playerSession);
+
+            playerSession.ResetHackControl();
             Logger.Log("Info", "Player left world " + this.Name + ".", playerSession.Name);
         }
 
@@ -119,9 +143,13 @@ namespace TeleClassic.Networking
                 throw new InvalidOperationException("Player has not joined world.");
 
             playerPositionMap[playerSession] = newPosition;
-            foreach (PlayerSession otherPlayer in playersInWorld)
-                if (otherPlayer != playerSession)
-                    otherPlayer.SendPacket(new PositionAndOrientationPacket(playerIdMap[playerSession], newPosition));
+
+            if (playerJoinMode[playerSession] == PlayerJoinMode.Player)
+            {
+                foreach (PlayerSession otherPlayer in playersInWorld)
+                    if (otherPlayer != playerSession)
+                        otherPlayer.SendPacket(new PositionAndOrientationPacket(playerIdMap[playerSession], newPosition));
+            }
         }
 
         public virtual void SetBlock(PlayerSession playerSession, BlockPosition position, byte blockType)

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using TeleClassic;
 
 namespace TeleClassic.Networking
 {
@@ -86,8 +85,6 @@ namespace TeleClassic.Networking
                     {
                         Logger.Log("info/networking", "Unable to connect client: " + e.Message + ".", "None");
                     }
-
-
 
                 foreach (PlayerSession session in sessions)
                     if (session.Disconnected || !session.Ping())
