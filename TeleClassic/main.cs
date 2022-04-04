@@ -1,13 +1,13 @@
 using System;
-using System.Collections.Generic;
-using System.IO;
 using TeleClassic;
 using TeleClassic.Gameplay;
 using TeleClassic.Networking;
 using TeleClassic.Networking.CEP;
+
 class Program
 {
-    class ConsolePrintCommandAction : CommandProcessor.PrintCommandAction {
+    class ConsolePrintCommandAction : CommandProcessor.PrintCommandAction 
+    {
         public override void Print(string message) => Console.WriteLine(message);
     }
 
@@ -38,7 +38,7 @@ class Program
         accountManager = new AccountManager("accounts.db");
         blacklist = new Blacklist("blacklist.db");
         server = new Server(25565, accountManager, blacklist);
-        worldManager = new WorldManager(new MultiplayerWorld("fuck.cw", Permission.Admin, Permission.Member, MultiplayerWorld.MaxPlayerCapacity), accountManager, "worlds.db");
+        worldManager = new WorldManager(new MultiplayerWorld("fuck.cw", Permission.Admin, Permission.Member, int.MaxValue), accountManager, "worlds.db");
         miniGameMarshaller = new MiniGameMarshaller();
 
         CommandProcessor commandProcessor = new CommandProcessor(Permission.Admin, ConsolePrintCommand);

@@ -50,6 +50,8 @@ namespace TeleClassic.Networking
             PositionAndOrientationPacket newPosition = new PositionAndOrientationPacket(networkStream);
             if (currentWorld == null)
             {
+                if (joiningWorld)
+                    return;
                 Logger.Log("error/networking", "Client tried to update position but hasn't joined a world.", Address.ToString());
                 throw new InvalidOperationException("Your Client has a bug: Updating position whilst not in world.");
             }

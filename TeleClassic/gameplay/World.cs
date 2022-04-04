@@ -12,6 +12,8 @@ namespace TeleClassic.Gameplay
     public class World
     {
         public string Name { get; protected set; }
+        private string fileName;
+
         public PlayerPosition SpawnPoint;
 
         protected NBT nBT;
@@ -35,9 +37,10 @@ namespace TeleClassic.Gameplay
                         this.Blocks[(cy * this.ZDim + cz) * this.XDim + cx] = blockType;
         }
 
-        public World(string fileName)
+        public World(string name, string fileName)
         {
-            Name = fileName;
+            this.Name = name;
+            this.fileName = fileName;
             nBT = new NBT(fileName);
 
             try

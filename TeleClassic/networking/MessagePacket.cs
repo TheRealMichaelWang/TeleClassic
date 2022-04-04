@@ -1,7 +1,9 @@
+using SuperForth;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net.Sockets;
+using TeleClassic.Networking;
 
 namespace TeleClassic.Networking
 {
@@ -111,7 +113,7 @@ namespace TeleClassic.Networking
             {
                 messageBacklog.Clear();
                 string command = messagePacket.Message.TrimStart('.', '/');
-                Message(command, true);
+                Message("&d"+command, true);
                 try
                 {
                     commandProcessor.ExecuteCommand(CommandParser.Compile(command));
@@ -128,6 +130,150 @@ namespace TeleClassic.Networking
             {
                 currentWorld.MessageFromPlayer(this, messagePacket.Message);
             }
+        }
+    }
+}
+
+namespace TeleClassic.Gameplay
+{
+    public partial class MiniGame
+    {
+        SuperForthInstance.Machine.ForeignFunction sendUrgentMessageDelegate;
+        SuperForthInstance.Machine.ForeignFunction sendBackloggedMessageDelegate;
+        SuperForthInstance.Machine.ForeignFunction playerAnnounceDelegate;
+        SuperForthInstance.Machine.ForeignFunction setPlayerStatusMessagePositionDelegate;
+        SuperForthInstance.Machine.ForeignFunction setPlayerStatusMessageDelegate;
+
+        private sbyte statusMessagePosition = 1;
+
+        private int FFISendUrgentMessage(ref SuperForthInstance.Machine machine, ref SuperForthInstance.MachineRegister input, ref SuperForth.SuperForthInstance.MachineRegister output)
+        {
+            if (!configured)
+            {
+                Logger.Log("minigame/error", "Minigame tried to log before finishing configuration.", this.Name);
+                return 0;
+            }
+            if(actorPlayer == null)
+            {
+                Logger.Log("minigame/error", "Minigame invoked message player while actor player was unset.", this.Name);
+                return 0;
+            }
+            if (actorPlayer.Disconnected)
+            {
+                Logger.Log("minigame/error", "Actor player was disconnected, could not message.", this.Name);
+                return 0;
+            }
+
+            actorPlayer.Message(input.HeapAllocation.GetString(), false);
+            return 1;
+        }
+
+        private int FFISendBackloggedMessage(ref SuperForthInstance.Machine machine, ref SuperForthInstance.MachineRegister input, ref SuperForth.SuperForthInstance.MachineRegister output)
+        {
+            if (!configured)
+            {
+                Logger.Log("minigame/error", "Minigame tried to log before finishing configuration.", this.Name);
+                return 0;
+            }
+            if (actorPlayer == null)
+            {
+                Logger.Log("minigame/error", "Minigame invoked message player while actor player was unset.", this.Name);
+                return 0;
+            }
+            if (actorPlayer.Disconnected)
+            {
+                Logger.Log("minigame/error", "Actor player was disconnected, could not message.", this.Name);
+                return 0;
+            }
+
+            actorPlayer.Message(input.HeapAllocation.GetString(), true);
+            actorPlayer.EmptyMessageBacklog();
+            return 1;
+        }
+
+        private int FFIPlayerAnnounce(ref SuperForthInstance.Machine machine, ref SuperForthInstance.MachineRegister input, ref SuperForth.SuperForthInstance.MachineRegister output)
+        {
+            if (!configured)
+            {
+                Logger.Log("minigame/error", "Minigame tried to log before finishing configuration.", this.Name);
+                return 0;
+            }
+            if (actorPlayer == null)
+            {
+                Logger.Log("minigame/error", "Minigame invoked message player while actor player was unset.", this.Name);
+                return 0;
+            }
+            if (actorPlayer.Disconnected)
+            {
+                Logger.Log("minigame/error", "Actor player was disconnected, could not message.", this.Name);
+                return 0;
+            }
+
+            string messageToSend = input.HeapAllocation.GetString();
+            if(messageToSend.Length > 64)
+            {
+                Logger.Log("minigame/error", "Minigame tried to send an announcement longer than 64 chars.", this.Name);
+                return 0;
+            }
+            actorPlayer.Announce(messageToSend);
+
+            return 1;
+        }
+
+        private int FFISetPlayerStatusMessagePosition(ref SuperForthInstance.Machine machine, ref SuperForthInstance.MachineRegister input, ref SuperForth.SuperForthInstance.MachineRegister output)
+        {
+            if (!configured)
+            {
+                Logger.Log("minigame/error", "Minigame tried to log before finishing configuration.", this.Name);
+                return 0;
+            }
+            if (actorPlayer == null)
+            {
+                Logger.Log("minigame/error", "Minigame invoked message player while actor player was unset.", this.Name);
+                return 0;
+            }
+            if (actorPlayer.Disconnected)
+            {
+                Logger.Log("minigame/error", "Actor player was disconnected, could not message.", this.Name);
+                return 0;
+            }
+            if(!((input.LongInt >= 1 && input.LongInt <= 3) || (input.LongInt >= 10 && input.LongInt <= 13)))
+            {
+                Logger.Log("minigame/error", "Minigame sent invalid player status message position: " + input.LongInt, this.Name);
+                return 0;
+            }
+            this.statusMessagePosition = (sbyte)input.LongInt;
+            return 1;
+        }
+
+        private int FFISetPlayerStatusMessage(ref SuperForthInstance.Machine machine, ref SuperForthInstance.MachineRegister input, ref SuperForth.SuperForthInstance.MachineRegister output)
+        {
+            if (!configured)
+            {
+                Logger.Log("minigame/error", "Minigame tried to log before finishing configuration.", this.Name);
+                return 0;
+            }
+            if (actorPlayer == null)
+            {
+                Logger.Log("minigame/error", "Minigame invoked message player while actor player was unset.", this.Name);
+                return 0;
+            }
+            if (actorPlayer.Disconnected)
+            {
+                Logger.Log("minigame/error", "Actor player was disconnected, could not message.", this.Name);
+                return 0;
+            }
+
+            if (!actorPlayer.ExtensionManager.SupportsExtension("MessageTypes"))
+            {
+                Logger.Log("minigame/error/nonfatal", "Actor player doesn't support message types.", this.Name);
+                output.BoolFlag = false;
+                return 1;
+            }
+
+            actorPlayer.SendPacket(new MessagePacket(this.statusMessagePosition, input.HeapAllocation.GetString()));
+            output.BoolFlag = true;
+            return 1;
         }
     }
 }

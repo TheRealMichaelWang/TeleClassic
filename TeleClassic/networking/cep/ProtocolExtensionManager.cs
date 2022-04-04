@@ -21,7 +21,6 @@ namespace TeleClassic.Networking.CEP
             serverSupportedExtensionsIdMap.Add(extName, extInfo);
         }
 
-
         public byte CustomBlockSupportLevel
         {
             get

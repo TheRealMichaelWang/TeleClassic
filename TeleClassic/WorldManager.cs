@@ -104,6 +104,8 @@ namespace TeleClassic
 
         public void AddWorld(MultiplayerWorld world) => worldLookup.Add(world.Name.StartsWith("worlds/") ? world.Name.Substring("worlds/".Length) : world.Name, world);
 
+        public void RemoveWorld(World world) => worldLookup.Remove(world.Name);
+
         public WorldManager(MultiplayerWorld lobby, AccountManager accountManager, string personalWorldsDbFile)
         {
             this.Lobby = lobby;
@@ -161,8 +163,8 @@ namespace TeleClassic
                 foreach (PersonalWorld personalWorld in personalWorlds)
                     personalWorld.WriteBack(binaryWriter);
             }
-            foreach (MultiplayerWorld world in worldLookup.Values)
-                world.Save();
+            foreach (PersonalWorld personalWorld in personalWorlds)
+                personalWorld.Save();
         }
     }
 }

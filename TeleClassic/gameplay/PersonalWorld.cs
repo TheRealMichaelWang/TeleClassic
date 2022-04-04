@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using TeleClassic.Networking;
 using TeleClassic.Networking.Clientbound;
-using TeleClassic.Networking.Serverbound;
 
 namespace TeleClassic.Gameplay
 {
@@ -18,7 +17,7 @@ namespace TeleClassic.Gameplay
         Dictionary<PlayerSession, WorldEditor> worldEditorInstances;
         public bool CanBuild(PlayerSession playerSession) => ((playerSession.IsLoggedIn && playerSession.Account == Owner) || playerSession.Permissions == Permission.Admin);
 
-        public PersonalWorld(string fileName, Account owner, bool isPublic) : base(fileName, Permission.Member, Permission.Member, MultiplayerWorld.MaxPlayerCapacity)
+        public PersonalWorld(string fileName, Account owner, bool isPublic) : base(fileName, Permission.Member, Permission.Member, int.MaxValue)
         {
             this.Owner = owner;
             this.IsPublic = isPublic;
@@ -28,7 +27,7 @@ namespace TeleClassic.Gameplay
             this.worldEditorInstances = new Dictionary<PlayerSession, WorldEditor>();
         }
 
-        public PersonalWorld(BinaryReader reader, AccountManager accountManager) : base(reader.ReadString(), Permission.Member, Permission.Member, MultiplayerWorld.MaxPlayerCapacity)
+        public PersonalWorld(BinaryReader reader, AccountManager accountManager) : base(reader.ReadString(), Permission.Member, Permission.Member, int.MaxValue)
         {
             string ownerUsername = reader.ReadString();
             if (ownerUsername == "ARCHIVED")

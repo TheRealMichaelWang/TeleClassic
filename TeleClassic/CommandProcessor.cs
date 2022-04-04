@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using TeleClassic.Gameplay;
 using TeleClassic.Networking;
 using static TeleClassic.CommandProcessor;
 
@@ -403,6 +404,7 @@ namespace TeleClassic
             AddCommand(Blacklist.kickPlayerCommandAction);
             AddCommand(Blacklist.banPlayerCommandAction);
             AddCommand(Blacklist.temporaryBanPlayerCommandAction);
+            AddCommand(MiniGameMarshaller.unsuspendMinigameCommandAction);
             AddCommand(helpCommandAction = new HelpCommandAction(this));
         }
 

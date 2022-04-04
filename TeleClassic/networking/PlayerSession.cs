@@ -121,6 +121,7 @@ namespace TeleClassic.Networking
 
         byte bufferedOpCode;
         volatile bool sendingPacket;
+        volatile bool joiningWorld;
 
         public bool Disconnected { get; private set; }
         public bool HasPackets { get => Disconnected ? false : networkStream.DataAvailable; }
@@ -186,6 +187,7 @@ namespace TeleClassic.Networking
             bufferedOpCode = byte.MaxValue;
             this.IsMuted = false;
             this.sendingPacket = false;
+            this.joiningWorld = false; 
 
             packetHandlers = new Dictionary<byte, PacketHandler>();
 
@@ -273,10 +275,12 @@ namespace TeleClassic.Networking
 
         public void JoinWorld(MultiplayerWorld world)
         {
+            this.joiningWorld = true;
             if (currentWorld != null)
                 LeaveWorld();
             world.JoinWorld(this);
             currentWorld = world;
+            this.joiningWorld = false;
         }
 
         public void LeaveWorld()
