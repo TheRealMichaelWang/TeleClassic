@@ -94,7 +94,7 @@ namespace TeleClassic.Gameplay
             }
             base.JoinWorld(playerSession, PlayerJoinMode.Spectator);
             if(playerSession.ExtensionManager.SupportsExtension("HackControl"))
-                playerSession.SendPacket(new HackControlPacket(true, true, true, true, true, 500));
+                playerSession.SendPacket(new HackControlPacket(true, true, true, true, true, -1));
         }
 
         public override void LeaveWorld(PlayerSession playerSession)

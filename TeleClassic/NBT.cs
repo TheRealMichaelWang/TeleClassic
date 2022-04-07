@@ -19,8 +19,12 @@ namespace TeleClassic
                     return new NBTByte(reader);
                 case 2:
                     return new NBTShort(reader);
+                case 3:
+                    return new NBTInt(reader);
                 case 4:
                     return new NBTLong(reader);
+                case 5:
+                    return new NBTFloat(reader);
                 case 7:
                     return new NBTByteArray(reader);
                 case 8:
@@ -74,6 +78,19 @@ namespace TeleClassic
             foreach (string objPath in path.Split('.'))
                 currentObj = currentObj.FindChild(objPath);
             return currentObj.GetPayload();
+        }
+
+        public bool ObjectExists(string path)
+        {
+            try
+            {
+                FindObject(path);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public void SetObject(string parentPath, NBTObject nbtObject)
@@ -166,6 +183,29 @@ namespace TeleClassic
         }
     }
 
+    public sealed class NBTInt : NBTObject
+    {
+        public readonly int Int;
+
+        public NBTInt(string name, int i) : base(name, 5)
+        {
+            Int = i;
+        }
+
+        public NBTInt(BinaryReader reader) : base(reader, 5)
+        {
+            Int = IPAddress.NetworkToHostOrder(reader.ReadInt32());
+        }
+
+        public override object GetPayload() => Int;
+
+        public override void WriteBack(BinaryWriter writer)
+        {
+            base.WriteBack(writer);
+            writer.Write(IPAddress.HostToNetworkOrder(this.Int));
+        }
+    }
+
     public sealed class NBTLong : NBTObject
     {
         public readonly long Long;
@@ -187,6 +227,23 @@ namespace TeleClassic
             base.WriteBack(writer);
             writer.Write(IPAddress.HostToNetworkOrder(Long));
         }
+    }
+
+    public sealed class NBTFloat : NBTObject
+    {
+        public readonly float Float;
+
+        public NBTFloat(string name, float f) : base(name, 3)
+        {
+            this.Float = f;
+        }
+
+        public NBTFloat(BinaryReader reader) : base(reader, 3)
+        {
+            this.Float =  reader.ReadSingle();
+        }
+
+        public override object GetPayload() => Float;
     }
 
     public sealed class NBTString : NBTObject

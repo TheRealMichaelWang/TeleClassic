@@ -152,6 +152,8 @@ namespace TeleClassic.Gameplay
             }
         }
 
+        public int ActiveMinigames { get => miniGames.Count; }
+
         List<MiniGame> miniGames;
         List<MiniGameConfiguration> miniGameConfigurations;
         Dictionary<string, MiniGameConfiguration> idMinigameConfigurationMap;

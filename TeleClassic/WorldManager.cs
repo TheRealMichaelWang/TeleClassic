@@ -88,6 +88,8 @@ namespace TeleClassic
             }
         }
 
+        public int WorldsOnServer { get => this.worldLookup.Count; }
+
         public static GetWorldListCommandAction getWorldListCommandAction = new GetWorldListCommandAction(Program.worldManager);
         public static GeneratePersonalWorldCommandAction generatePersonalWorldCommandAction = new GeneratePersonalWorldCommandAction(Program.worldManager);
         public static FindWorldCommandAction findWorldCommandAction = new FindWorldCommandAction(Program.worldManager);

@@ -14,6 +14,8 @@ namespace TeleClassic.Networking.CEP
             serverSupportedExtensionsIdMap = new Dictionary<string, ExtEntryPacket>();
         }
 
+        public static bool Supports(string extName) => serverSupportedExtensionsIdMap.ContainsKey(extName);
+
         public static void DeclareSupport(string extName, int version)
         {
             ExtEntryPacket extInfo = new ExtEntryPacket(extName, version);

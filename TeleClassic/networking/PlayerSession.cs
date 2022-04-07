@@ -340,7 +340,6 @@ namespace TeleClassic.Networking
 
             commandProcessor = new CommandProcessor(this.Permissions, CommandParser.printCommandAction);
             this.JoinWorld(Program.worldManager.Lobby);
-            this.ResetHackControl();
         }
 
         public void handlePlayerSetBlock()

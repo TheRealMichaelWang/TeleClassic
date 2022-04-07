@@ -17,6 +17,8 @@ class Program
     public static MiniGameMarshaller miniGameMarshaller;
     public static Blacklist blacklist;
 
+    public static Lobby lobby;
+
     static ConsolePrintCommandAction ConsolePrintCommand = new ConsolePrintCommandAction();
 
     public static void Main(string[] args)
@@ -30,15 +32,23 @@ class Program
         ProtocolExtensionManager.DeclareSupport("BulkBlockUpdate", 1);
         ProtocolExtensionManager.DeclareSupport("HackControl", 1);
 
+        ProtocolExtensionManager.DeclareSupport("EnvMapAspect", 1);
+        ProtocolExtensionManager.DeclareSupport("EnvWeatherType", 1);
+        ProtocolExtensionManager.DeclareSupport("EnvMapAppearance", 2);
+        ProtocolExtensionManager.DeclareSupport("BlockDefinitions", 1);
+
         Logger.Log("Info", "Begun loading worlds.", "None");
 
         Logger.Log("Info", "Begun starting.", "None");
         AppDomain.CurrentDomain.ProcessExit += new EventHandler(exit);
 
+        Logger.Log("Info", "Loading lobby...", "None");
+        lobby = new Lobby();
+
         accountManager = new AccountManager("accounts.db");
         blacklist = new Blacklist("blacklist.db");
         server = new Server(25565, accountManager, blacklist);
-        worldManager = new WorldManager(new MultiplayerWorld("fuck.cw", Permission.Admin, Permission.Member, int.MaxValue), accountManager, "worlds.db");
+        worldManager = new WorldManager(lobby, accountManager, "worlds.db");
         miniGameMarshaller = new MiniGameMarshaller();
 
         CommandProcessor commandProcessor = new CommandProcessor(Permission.Admin, ConsolePrintCommand);

@@ -26,6 +26,8 @@ namespace TeleClassic.Networking
             public void Invoke(CommandProcessor commandProcessor) => commandProcessor.PushObject(new CommandProcessor.PlayerCommandObject(new List<PlayerSession>(server.sessions)));
         }
 
+        public int PlayerCount { get => sessions.Count; }
+
         public static GetAllPlayersCommandAction getAllPlayersCommandAction = new GetAllPlayersCommandAction(Program.server);
 
         private readonly TcpListener listener;

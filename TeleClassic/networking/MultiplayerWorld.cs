@@ -155,6 +155,7 @@ namespace TeleClassic.Networking
             playerJoinMode.Remove(playerSession);
             
             playerSession.ResetHackControl();
+            playerSession.RemoveCustomBlockDefinitions();
             Logger.Log("Info", "Player left world " + this.Name + ".", playerSession.Name);
         }
 
