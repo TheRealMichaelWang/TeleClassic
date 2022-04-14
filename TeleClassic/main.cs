@@ -21,6 +21,8 @@ class Program
 
     static ConsolePrintCommandAction ConsolePrintCommand = new ConsolePrintCommandAction();
 
+    static volatile bool started = false;
+
     public static void Main(string[] args)
     {
         ProtocolExtensionManager.DeclareSupport("PlayerClick", 1);
@@ -60,6 +62,7 @@ class Program
 
         if (!accountManager.UserExists("michaelw"))
             accountManager.Logout(accountManager.Register("michaelw", "iamgod", Permission.Admin));
+        started = true;
 
         //worldManager.AddPersonalWorld(new WorldManager.PersonalWorld("fuck.cw", null, true));
 
@@ -92,14 +95,16 @@ class Program
     static void exit(object sender, EventArgs e)
     {
         Logger.Log("Info", "Begun stopping.", "None");
-        server.Stop();
-        miniGameMarshaller.Stop();
-        accountManager.Save();
-        worldManager.Save();
-        blacklist.Save();
-        miniGameMarshaller.Save();
+        if (started)
+        {
+            server.Stop();
+            miniGameMarshaller.Stop();
+            accountManager.Save();
+            worldManager.Save();
+            blacklist.Save();
+            miniGameMarshaller.Save();
+        }
         Logger.Log("Info", "Finished stopping.", "None");
-
         Logger.EndSession();
     }
 }

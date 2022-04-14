@@ -187,12 +187,12 @@ namespace TeleClassic
     {
         public readonly int Int;
 
-        public NBTInt(string name, int i) : base(name, 5)
+        public NBTInt(string name, int i) : base(name, 3)
         {
             Int = i;
         }
 
-        public NBTInt(BinaryReader reader) : base(reader, 5)
+        public NBTInt(BinaryReader reader) : base(reader, 3)
         {
             Int = IPAddress.NetworkToHostOrder(reader.ReadInt32());
         }
@@ -233,12 +233,12 @@ namespace TeleClassic
     {
         public readonly float Float;
 
-        public NBTFloat(string name, float f) : base(name, 3)
+        public NBTFloat(string name, float f) : base(name, 5)
         {
             this.Float = f;
         }
 
-        public NBTFloat(BinaryReader reader) : base(reader, 3)
+        public NBTFloat(BinaryReader reader) : base(reader, 5)
         {
             this.Float =  reader.ReadSingle();
         }
@@ -311,7 +311,7 @@ namespace TeleClassic
         public NBTCompound(string name, List<NBTObject> children) : base(name, 10)
         {
             Children = children;
-            childrenLookup = new Dictionary<string, NBTObject>();
+            childrenLookup = new Dictionary<string, NBTObject>(children.Capacity);
             foreach (NBTObject child in Children)
                 childrenLookup[child.Name] = child;
         }
@@ -351,9 +351,20 @@ namespace TeleClassic
 
         public void SetObject(NBTObject newObject)
         {
-            Children.Remove(childrenLookup[newObject.Name]);
-            Children.Add(newObject);
-            childrenLookup[newObject.Name] = newObject;
+            if (!HasChild(newObject.Name))
+                AddChild(newObject);
+            else
+            {
+                Children.Remove(childrenLookup[newObject.Name]);
+                Children.Add(newObject);
+                childrenLookup[newObject.Name] = newObject;
+            }
+        }
+
+        public void Clear()
+        {
+            this.childrenLookup.Clear();
+            this.Children.Clear();
         }
 
         public override NBTObject FindChild(string name) => childrenLookup[name];

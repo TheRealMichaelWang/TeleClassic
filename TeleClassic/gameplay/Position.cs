@@ -2,6 +2,8 @@ namespace TeleClassic.Gameplay
 {
     public partial class BlockPosition
     {
+        public static bool IsInvalid(BlockPosition blockPosition) => blockPosition.X < 0 || blockPosition.Y < 0 || blockPosition.Z < 0;
+
         public readonly short X;
         public readonly short Y;
         public readonly short Z;

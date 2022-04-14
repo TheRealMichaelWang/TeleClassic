@@ -189,8 +189,16 @@ namespace TeleClassic.Gameplay
                             miniGameConfiguration.Suspended = true;
                         }
 
-                    foreach (MiniGame miniGame in miniGames)
-                        miniGame.Start();
+                    List<MiniGame> miniGamesToStart = new List<MiniGame>(miniGames);
+                    foreach (MiniGame miniGame in miniGamesToStart)
+                        try
+                        {
+                            miniGame.Start();
+                        }
+                        catch(InvalidOperationException)
+                        {
+                            Logger.Log("error-minigame", "Minigame failed to configure within 3 sec threshold.", "None");
+                        }
                 }
             }
             else
@@ -284,6 +292,11 @@ namespace TeleClassic.Gameplay
             public readonly string WorkingDirectory;
 
             public bool RunExitQueue;
+            public bool RunMessageQueue;
+            public bool RunClickQueue;
+            public bool RunBlockQueue;
+
+            public bool ExcludeBlockClicks;
 
             public MiniGameRuntimeConfiguration(SuperForthInstance.MachineHeapAllocation superforthConfigStruct)
             {
@@ -300,13 +313,20 @@ namespace TeleClassic.Gameplay
                 this.Author = Program.accountManager.FindUser(authorName);
 
                 this.RunExitQueue = superforthConfigStruct[4].BoolFlag;
+                this.RunMessageQueue = superforthConfigStruct[5].BoolFlag;
+                this.RunClickQueue = superforthConfigStruct[6].BoolFlag;
+                this.RunBlockQueue = superforthConfigStruct[7].BoolFlag;
+                this.ExcludeBlockClicks = superforthConfigStruct[8].BoolFlag;
             }
         }
 
         private enum MinigameEventID
         {
             NoneOrEmpty = -1,
-            PlayerExit = 0
+            PlayerExit = 0,
+            PlayerMessage = 1,
+            PlayerClick = 2,
+            BlockPlaced = 3
         }
 
         public new string Name
@@ -336,6 +356,7 @@ namespace TeleClassic.Gameplay
         SuperForthInstance gameInstance;
         Thread gameThread;
         private volatile bool exited_thread;
+        private volatile bool stopping;
         private volatile bool cleaned_users;
 
         EventHandler<SuperForthException> errorHandler;
@@ -345,12 +366,14 @@ namespace TeleClassic.Gameplay
         Queue<PlayerSession> joinQueue;
         HashSet<PlayerSession> inJoinQueue;
         Queue<MinigameEventID> eventIds;
-        Queue<SuperForthInstance.MachineRegister> eventArguments; 
+        Queue<Tuple<SuperForthInstance.MachineRegister, bool>> eventArguments; 
 
         Dictionary<PlayerSession, long> playerHandles;
         Dictionary<long, PlayerSession> handlePlayerMap;
         Queue<long> unusedHandles;
         long currentHandle;
+
+        private volatile bool initialized = false;
 
         SuperForthInstance.Machine.ForeignFunction configureMiniGameDelegate;
         SuperForthInstance.Machine.ForeignFunction logInfoDelegate;
@@ -381,7 +404,7 @@ namespace TeleClassic.Gameplay
             joinQueue = new Queue<PlayerSession>();
             inJoinQueue = new HashSet<PlayerSession>();
             eventIds = new Queue<MinigameEventID>();
-            eventArguments = new Queue<SuperForthInstance.MachineRegister>();
+            eventArguments = new Queue<Tuple<SuperForthInstance.MachineRegister, bool>>();
             playerHandles = new Dictionary<PlayerSession, long>();
             handlePlayerMap = new Dictionary<long, PlayerSession>();
             unusedHandles = new Queue<long>();
@@ -402,6 +425,7 @@ namespace TeleClassic.Gameplay
             gameInstance.AddForeignFunction(setPlayerStatusMessagePositionDelegate = this.FFISetPlayerStatusMessagePosition);
             gameInstance.AddForeignFunction(setPlayerStatusMessageDelegate = this.FFISetPlayerStatusMessage);
 
+            initialized = true;
             gameThread = new Thread(new ThreadStart(gameThreadLoop));
         }
 
@@ -412,10 +436,13 @@ namespace TeleClassic.Gameplay
 
         public void Start()
         {
+            while (!initialized) { }
+
             this.configured = false;
             this.currentHandle = 0;
             this.exited_thread = false;
             this.cleaned_users = false;
+            this.stopping = false;
             playerHandles.Clear();
             handlePlayerMap.Clear();
             unusedHandles.Clear();
@@ -429,7 +456,7 @@ namespace TeleClassic.Gameplay
                 if(DateTime.Now - beginTime > TimeSpan.FromSeconds(3))
                 {
                     this.Stop();
-                    throw new InvalidOperationException("SuperForth Script did not finish configuration during alloted time-frame.");
+                    throw new InvalidOperationException("SuperForth Script did not finish configuration during allotted time-frame.");
                 }
             }
         }
@@ -439,6 +466,7 @@ namespace TeleClassic.Gameplay
             if (!this.exited_thread)
             {
                 Logger.Log("Info", "Stopping minigame.", this.Name);
+                this.stopping = true;
                 gameInstance.Pause();
                 while(gameThread.IsAlive) { }
                 this.exited_thread = true;
@@ -455,10 +483,6 @@ namespace TeleClassic.Gameplay
         public override void JoinWorld(PlayerSession playerSession)
         {
             Logger.Log("minigame/info", "Player has entered the join queue.", playerSession.Name);
-
-            joinQueue.Enqueue(playerSession);
-            inJoinQueue.Add(playerSession);
-
             if (joinQueue.Count > 0)
             {
                 playerSession.Message("You have entered the join queue for: " + this.Name + "\n" +
@@ -466,6 +490,9 @@ namespace TeleClassic.Gameplay
             }
             if(playerSession.ExtensionManager.SupportsExtension("MessageTypes"))
                 playerSession.SendPacket(new MessagePacket(1, "Joining " + this.Name + "..."));
+
+            joinQueue.Enqueue(playerSession);
+            inJoinQueue.Add(playerSession);
         }
 
         public override void LeaveWorld(PlayerSession playerSession)
@@ -475,11 +502,14 @@ namespace TeleClassic.Gameplay
                 if (configuration.RunExitQueue)
                 {
                     eventIds.Enqueue(MinigameEventID.PlayerExit);
-                    eventArguments.Enqueue(SuperForthInstance.MachineRegister.FromInt((int)playerHandles[playerSession]));
+                    eventArguments.Enqueue(Tuple.Create(SuperForthInstance.MachineRegister.FromInt((int)playerHandles[playerSession]), false));
                 }
+
                 if (!inJoinQueue.Contains(playerSession))
                 {
                     base.LeaveWorld(playerSession);
+                    if (this.configuration.RunClickQueue)
+                        playerSession.OnPlayerClick += null;
                     FreeHandle(playerSession);
                 }
             }
@@ -495,9 +525,55 @@ namespace TeleClassic.Gameplay
         public override void SetBlock(PlayerSession playerSession, BlockPosition position, byte blockType)
         {
             if (!inJoinQueue.Contains(playerSession))
-                base.SetBlock(playerSession, position, blockType);
+            {
+                if (configuration.RunBlockQueue)
+                {
+                    this.gameInstance.Pause();
+
+                    SuperForthInstance.MachineRegister eventRegister = SuperForthInstance.MachineRegister.NewHeapAlloc(this.gameInstance, 5, SuperForthInstance.MachineHeapAllocation.GCTraceMode.None);
+                    SuperForthInstance.MachineHeapAllocation placeBlockInfo = eventRegister.HeapAllocation;
+                    placeBlockInfo[0] = SuperForthInstance.MachineRegister.FromInt(position.X);
+                    placeBlockInfo[1] = SuperForthInstance.MachineRegister.FromInt(position.Y);
+                    placeBlockInfo[2] = SuperForthInstance.MachineRegister.FromInt(position.Z);
+                    placeBlockInfo[3] = SuperForthInstance.MachineRegister.FromInt((int)playerHandles[playerSession]);
+                    placeBlockInfo[4] = SuperForthInstance.MachineRegister.FromInt(blockType);
+                    eventRegister.GCKeepAlive(this.gameInstance);
+
+                    eventIds.Enqueue(MinigameEventID.BlockPlaced);
+                    eventArguments.Enqueue(Tuple.Create(eventRegister, true));
+                    gameInstance.ThreadResume();
+                }
+                else
+                {
+                    base.SetBlock(playerSession, position, blockType);
+                }
+            }
             else
                 playerSession.Message("&eCALM YO TITTIES! You can't build whilst in the join queue.", false);
+        }
+
+        public override void MessageFromPlayer(PlayerSession playerSession, string message)
+        {
+            if (inJoinQueue.Contains(playerSession))
+               return;
+
+            if (this.configuration.RunMessageQueue)
+            {
+                this.gameInstance.Pause();
+                
+                SuperForthInstance.MachineRegister eventRegister = SuperForthInstance.MachineRegister.NewHeapAlloc(this.gameInstance, 2, SuperForthInstance.MachineHeapAllocation.GCTraceMode.Some);
+                SuperForthInstance.MachineHeapAllocation messageInfo = eventRegister.HeapAllocation;
+                messageInfo.ConfigureCustomGCTraceSchema(false, true);
+                messageInfo[0] = SuperForthInstance.MachineRegister.FromInt((int)playerHandles[playerSession]);
+                messageInfo[1] = SuperForthInstance.MachineRegister.FromString(this.gameInstance, message);
+                eventRegister.GCKeepAlive(this.gameInstance);
+
+                eventIds.Enqueue(MinigameEventID.PlayerMessage);
+                eventArguments.Enqueue(Tuple.Create(eventRegister, true));
+                gameInstance.ThreadResume();
+            }
+            else
+                base.MessageFromPlayer(playerSession, message);
         }
 
         private long NewHandle(PlayerSession playerSession)
@@ -589,9 +665,14 @@ namespace TeleClassic.Gameplay
                 return 1;
             }
             toAccept.ClearPersistantMessages();
-            
-            base.JoinWorld(toAccept, input.BoolFlag ? PlayerJoinMode.Player : PlayerJoinMode.Spectator);
+
+            base.JoinWorld(toAccept, PlayerJoinMode.Player);
+
             inJoinQueue.Remove(toAccept);
+
+            if (this.configuration.RunClickQueue)
+                toAccept.OnPlayerClick += this.handlePlayerClick;
+
             output.BoolFlag = true;
             return 1;
         }
@@ -640,7 +721,7 @@ namespace TeleClassic.Gameplay
         {
             if (eventArguments.Count == 0)
                 return 0;
-            output = eventArguments.Peek();
+            output = eventArguments.Peek().Item1;
             return 1;
         }
 
@@ -657,7 +738,10 @@ namespace TeleClassic.Gameplay
             {
                 if (eventArguments.Count == 0)
                     return 0;
-                eventArguments.Dequeue();
+
+                Tuple<SuperForthInstance.MachineRegister, bool> eventArg =  eventArguments.Dequeue();
+                if (eventArg.Item2)
+                    eventArg.Item1.GCRelease(gameInstance);
             }
             output.BoolFlag = true;
             return 1;
@@ -686,6 +770,13 @@ namespace TeleClassic.Gameplay
             try
             {
                 gameInstance.Run();
+
+                while (!stopping) //minigame is paused
+                {
+                    while (gameInstance.IsPaused) { }
+                    gameInstance.ResumeExecute();
+                }
+
                 this.exited_thread = true;
                 Logger.Log("Info", "The minigame has finished and exited willfully.", this.Name);
                 exitHandler.Invoke(this, true);

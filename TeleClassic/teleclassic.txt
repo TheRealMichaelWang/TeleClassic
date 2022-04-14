@@ -1,6 +1,23 @@
 ﻿$TELECLASSIC - Written by Michael Wang, 2022
 $Use this file as a wrapper to interact with TeleClassic
 
+$position - this is a precise player position
+
+record block_position {
+	int x;
+	int y;
+	int z;
+}
+
+record player_position {
+	int x;
+	int y;
+	int z;
+
+	int heading;
+	int pitch;
+}
+
 $config information
 record minigame_config {
 	array<char> name;
@@ -9,10 +26,46 @@ record minigame_config {
 	array<char> workingDir;
 
 	bool runExitQueue;
+	bool runMsgQueue;
+	bool runClickQueue;
+	bool runBlockQueue;
+
+	bool excludeBlockClick;
 }
 
+$message infomation passed via event args upon a player message in chat(excludes commands). Ensure runMsgQueue is configured to true to run this event
+record player_message_info {
+	int playerHandle;
+	array<char> message;
+}
+
+record place_block_info extends block_position {
+	int playerHandle;
+	int blockType;
+}
+
+$player click information passed via event args upon a player click. Ensure runClickQueue is configured to true to run this event
+record player_click_info {
+	int playerHandle;
+
+	int buttonType;
+	bool buttonDown;
+
+	int yaw;
+	int pitch;
+}
+
+$player click buttom types
+global readonly int player_click_button_left = 0;
+global readonly int player_click_button_right = 1;
+global readonly int player_click_button_middle = 2;
+
+$event id's
 global readonly int event_none = -1;
 global readonly int event_player_exit = 0;
+global readonly int event_player_msg = 1;
+global readonly int event_player_click = 2;
+global readonly int event_block_placed = 3;
 
 $sets the configurations for your minigame. You can only call this function once, and you must do so within 3 seconds of initialization.
 global readonly auto minigame_set_config = proc(minigame_config config) return nothing {

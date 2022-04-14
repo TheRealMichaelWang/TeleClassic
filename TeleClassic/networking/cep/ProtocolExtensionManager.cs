@@ -16,6 +16,14 @@ namespace TeleClassic.Networking.CEP
 
         public static bool Supports(string extName) => serverSupportedExtensionsIdMap.ContainsKey(extName);
 
+        public static int GetMaxSupportedVersion(string extName)
+        {
+            if (!Supports(extName))
+                throw new InvalidOperationException("No such supported extension \"" + extName + "\"");
+            else
+                return serverSupportedExtensionsIdMap[extName].Version;
+        }
+
         public static void DeclareSupport(string extName, int version)
         {
             ExtEntryPacket extInfo = new ExtEntryPacket(extName, version);

@@ -11,7 +11,7 @@ namespace TeleClassic
 {
     public sealed class Lobby : MultiplayerWorld
     {
-        public Lobby() : base("lobby", "lobby.cw", Permission.Admin, Permission.Member, int.MaxValue)
+        public Lobby() : base("lobby", "templobby.cw", Permission.Admin, Permission.Member, int.MaxValue)
         {
                 
         }

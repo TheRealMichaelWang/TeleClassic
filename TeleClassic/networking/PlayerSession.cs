@@ -119,9 +119,8 @@ namespace TeleClassic.Networking
         public CommandParser CommandParser;
         CommandProcessor commandProcessor;
 
-        byte bufferedOpCode;
-        volatile bool sendingPacket;
-        volatile bool joiningWorld;
+        private byte bufferedOpCode;
+        private volatile bool joiningWorld;
 
         public bool Disconnected { get; private set; }
         public bool HasPackets { get => Disconnected ? false : networkStream.DataAvailable; }
@@ -186,7 +185,6 @@ namespace TeleClassic.Networking
             Disconnected = false;
             bufferedOpCode = byte.MaxValue;
             this.IsMuted = false;
-            this.sendingPacket = false;
             this.joiningWorld = false; 
 
             packetHandlers = new Dictionary<byte, PacketHandler>();
@@ -216,20 +214,19 @@ namespace TeleClassic.Networking
 
         public bool SendPacket(Packet packet)
         {
-            while (sendingPacket) { }
-
             bool stat;
             try
             {
-                sendingPacket = true;
-                packet.Send(networkStream);
-                stat = true;
+                lock (networkStream)
+                {
+                    packet.Send(networkStream);
+                    stat = true;
+                }
             }
             catch
             {
                 stat = false;
             }
-            sendingPacket = false;
             return stat;
         }
 
@@ -275,6 +272,8 @@ namespace TeleClassic.Networking
 
         public void JoinWorld(MultiplayerWorld world)
         {
+            if (currentWorld == world)
+                return;
             this.joiningWorld = true;
             if (currentWorld != null)
                 LeaveWorld();

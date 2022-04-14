@@ -1,10 +1,12 @@
-﻿using System;
+﻿using SuperForth;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using TeleClassic.Gameplay;
+using TeleClassic.Networking;
 using TeleClassic.Networking.Serverbound;
 
 namespace TeleClassic.Networking.Serverbound
@@ -73,6 +75,35 @@ namespace TeleClassic.Networking
             PlayerClickedPacket playerClickedPacket = new PlayerClickedPacket(networkStream);
             if (playerClickedEvent != null)
                 playerClickedEvent(this, playerClickedPacket);
+        }
+    }
+}
+
+namespace TeleClassic.Gameplay
+{
+    public partial class MiniGame
+    {
+        private void handlePlayerClick(object sender, PlayerClickedPacket playerClickedPacket)
+        {
+            if (this.configuration.ExcludeBlockClicks && !BlockPosition.IsInvalid(playerClickedPacket.TargetedBlock))
+                return;
+
+            PlayerSession playerSession = (PlayerSession)sender;
+
+            this.gameInstance.Pause();
+
+            SuperForthInstance.MachineRegister eventRegister = SuperForthInstance.MachineRegister.NewHeapAlloc(this.gameInstance, 5, SuperForthInstance.MachineHeapAllocation.GCTraceMode.None);
+            SuperForthInstance.MachineHeapAllocation playerClickInfo = eventRegister.HeapAllocation;
+            playerClickInfo[0] = SuperForthInstance.MachineRegister.FromInt((int)playerHandles[playerSession]);
+            playerClickInfo[1] = SuperForthInstance.MachineRegister.FromInt((int)playerClickedPacket.ClickButton);
+            playerClickInfo[2] = SuperForthInstance.MachineRegister.FromBool(playerClickedPacket.ClickAction == PlayerClickedPacket.Action.Pressed);
+            playerClickInfo[3] = SuperForthInstance.MachineRegister.FromInt(playerClickedPacket.Yaw);
+            playerClickInfo[4] = SuperForthInstance.MachineRegister.FromInt(playerClickedPacket.Pitch);
+
+            eventRegister.GCKeepAlive(this.gameInstance);
+            eventIds.Enqueue(MinigameEventID.PlayerClick);
+            eventArguments.Enqueue(Tuple.Create(eventRegister, true));
+            this.gameInstance.ThreadResume();
         }
     }
 }

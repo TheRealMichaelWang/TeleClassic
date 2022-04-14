@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Net;
 using System.Text;
 using TeleClassic.Gameplay;
+using TeleClassic.Networking.CEP;
 using TeleClassic.Networking.Clientbound;
 
 namespace TeleClassic.Gameplay
@@ -102,7 +103,7 @@ namespace TeleClassic.Gameplay
                 this.FogDensity = fogDataArray.Data[0];
                 this.FogColor = Color.FromArgb(fogDataArray.Data[1], fogDataArray.Data[2], fogDataArray.Data[3]);
                 this.Solidity = BlockSolidity.Solid;
-                this.FullBright = true;
+                this.FullBright = false;
             }
 
             public NBTCompound GetNBTCompound()
@@ -181,7 +182,7 @@ namespace TeleClassic.Gameplay
             this.fileName = fileName;
             nBT = new NBT(fileName);
 
-            this.environmentConfiguration = new EnvironmentConfiguration("https://bit.ly/3NSmdgu", Gameplay.Blocks.Water, Gameplay.Blocks.Bedrock, 16, EnvironmentConfiguration.WeatherType.Sunny);
+            this.environmentConfiguration = new EnvironmentConfiguration("https://bit.ly/3Ktfx6I", Gameplay.Blocks.Bedrock, Gameplay.Blocks.Water, 16, EnvironmentConfiguration.WeatherType.Sunny);
             try
             {
                 //read a world 
@@ -213,6 +214,7 @@ namespace TeleClassic.Gameplay
                         NBTCompound envWeatherMetadata = (NBTCompound)CPEMetadata.FindChild("EnvWeatherType");
                         environmentConfiguration.Weather = Enum.Parse<EnvironmentConfiguration.WeatherType>(envWeatherMetadata.FindChild("WeatherType").GetPayload().ToString());
                     }
+
                     if (CPEMetadata.HasChild("BlockDefinitions"))
                     {
                         NBTCompound blockDefinitions = (NBTCompound)CPEMetadata.FindChild("BlockDefinitions");
@@ -225,6 +227,14 @@ namespace TeleClassic.Gameplay
                                 this.customBlockDefinitions.Add(new CustomBlockDefinition(blockDefinition));
                             }
                     }
+                    else
+                    {
+                        customBlockDefinitions = new List<CustomBlockDefinition>();
+                    }
+                }
+                else
+                {
+                    customBlockDefinitions = new List<CustomBlockDefinition>();
                 }
 
                 Logger.Log("Info", "Sucesfully loaded world.", fileName);
@@ -282,6 +292,58 @@ namespace TeleClassic.Gameplay
             }));
 
             nBT.SetObject(string.Empty, new NBTByteArray("BlockArray", Blocks));
+
+            NBTCompound CPEMetadata;
+            if (nBT.ObjectExists("Metadata.CPE"))
+                CPEMetadata = (NBTCompound)nBT.FindObject("Metadata.CPE");
+            else
+            {
+                if (!nBT.ObjectExists("Metadata"))
+                    nBT.SetObject(string.Empty, new NBTCompound("Metadata", new List<NBTObject>(1)));
+                CPEMetadata = new NBTCompound("CPE", new List<NBTObject>());
+                nBT.SetObject("Metadata", CPEMetadata);
+            }
+
+            NBTCompound envMapAppearanceData;
+            if (CPEMetadata.HasChild("EnvMapAppearance"))
+                envMapAppearanceData = (NBTCompound)CPEMetadata.FindChild("EnvMapAppearance");
+            else
+            {
+                envMapAppearanceData = new NBTCompound("EnvMapAppearance", new List<NBTObject>(5));
+                envMapAppearanceData.AddChild(new NBTInt("ExtensionVersion", ProtocolExtensionManager.GetMaxSupportedVersion("EnvMapAppearance")));
+                CPEMetadata.AddChild(envMapAppearanceData);
+            }
+            envMapAppearanceData.SetObject(new NBTString("TextureURL", this.environmentConfiguration.TextureUrl));
+            envMapAppearanceData.SetObject(new NBTByte("SideBlock", this.environmentConfiguration.SideBlock));
+            envMapAppearanceData.SetObject(new NBTByte("EdgeBlock", this.environmentConfiguration.EdgeBlock));
+            envMapAppearanceData.SetObject(new NBTShort("SideLevel", this.environmentConfiguration.SideLevel));
+
+            NBTCompound envWeatherData;
+            if (CPEMetadata.HasChild("EnvWeatherType"))
+                envWeatherData = (NBTCompound)CPEMetadata.FindChild("EnvWeatherType");
+            else
+            {
+                envWeatherData = new NBTCompound("EnvWeatherType", new List<NBTObject>(2));
+                envWeatherData.AddChild(new NBTInt("ExtensionVersion", ProtocolExtensionManager.GetMaxSupportedVersion("EnvWeatherType")));
+                CPEMetadata.AddChild(envWeatherData);
+            }
+            envWeatherData.SetObject(new NBTByte("WeatherType", (byte)this.environmentConfiguration.Weather));
+
+            NBTCompound blockDefinitionData;
+            if (CPEMetadata.HasChild("BlockDefinitions"))
+            {
+                blockDefinitionData = (NBTCompound)CPEMetadata.FindChild("BlockDefinitions");
+                blockDefinitionData.Clear();
+            }
+            else
+            {
+                blockDefinitionData = new NBTCompound("BlockDefinitions", new List<NBTObject>(1 + this.customBlockDefinitions.Count));
+                CPEMetadata.AddChild(blockDefinitionData);
+            }
+            blockDefinitionData.AddChild(new NBTInt("ExtensionVersion", ProtocolExtensionManager.GetMaxSupportedVersion("BlockDefinitions")));
+            foreach (CustomBlockDefinition customBlockDefinition in this.customBlockDefinitions)
+                blockDefinitionData.AddChild(customBlockDefinition.GetNBTCompound());
+
             nBT.Save();
             Logger.Log("Info", "Saved world.", Name);
             this.edited = false;
@@ -316,7 +378,7 @@ namespace TeleClassic.Networking
 
         public bool SupportsBlock(byte block)
         {
-            if (this.ExtensionManager.SupportsExtension("BlockDefinitions"))
+            if (this.ExtensionManager.SupportsExtension("BlockDefinitions") && block > 65)
                 return supportedCustomBlocks.Contains(block);
             else if (!this.ExtensionManager.SupportsExtension("CustomBlocks"))
                 return block <= 50;
@@ -330,6 +392,7 @@ namespace TeleClassic.Networking
             using (MemoryStream buffer = new MemoryStream())
             {
                 SendPacket(new LevelInitializePacket());
+                RemoveCustomBlockDefinitions();
 
                 if (this.ExtensionManager.SupportsExtension("EnvMapAspect") && this.ExtensionManager.SupportsExtension("EnvWeatherType"))
                 {
@@ -343,13 +406,14 @@ namespace TeleClassic.Networking
                 {
                     if (this.ExtensionManager.GetExtensionVersion("EnvMapAppearance") == 2)
                     {
-                        
+                        SendPacket(new EnvSetAppearancePacket2(world.environmentConfiguration.TextureUrl, world.environmentConfiguration.SideBlock, world.environmentConfiguration.EdgeBlock, world.environmentConfiguration.SideLevel, (short)(world.YDim + 2), 0));
                     }
                     else
                     {
-
+                        SendPacket(new EnvSetAppearancePacket1(world.environmentConfiguration.TextureUrl, world.environmentConfiguration.SideBlock, world.environmentConfiguration.EdgeBlock, world.environmentConfiguration.SideLevel));
                     }
                 }
+
                 if (this.ExtensionManager.SupportsExtension("BlockDefinitions"))
                 {
                     foreach (World.CustomBlockDefinition customBlockDefinition in world.customBlockDefinitions)
@@ -357,6 +421,11 @@ namespace TeleClassic.Networking
                         SendPacket(new DefineBlockPacket(customBlockDefinition));
                         supportedCustomBlocks.Add(customBlockDefinition.BlockID);
                     }
+                }
+                else
+                {
+                    foreach (World.CustomBlockDefinition customBlockDefinition in world.customBlockDefinitions)
+                        supportedCustomBlocks.Add(customBlockDefinition.BlockID);
                 }
 
                 using (GZipStream gzip = new GZipStream(buffer, CompressionMode.Compress, true))
@@ -397,9 +466,10 @@ namespace TeleClassic.Networking
 
         public void RemoveCustomBlockDefinitions()
         {
-            this.supportedCustomBlocks.Clear();
             foreach (byte customBlockDeclartionID in this.supportedCustomBlocks)
-                SendPacket(new RemoveSelectionPacket(customBlockDeclartionID));
+                if(ExtensionManager.SupportsExtension("BlockDefinitions"))
+                    SendPacket(new RemoveBlockDefinitionPacket(customBlockDeclartionID));
+            this.supportedCustomBlocks.Clear();
         }
     }
 }

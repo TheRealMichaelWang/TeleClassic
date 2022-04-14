@@ -56,7 +56,7 @@ namespace TeleClassic
                     throw new ArgumentException("Expected 1 owner got " + newPlayerOwner.playerSessions.Count + " player(s).");
                 if (this.worldManager.HasWorld(worldId.String))
                     throw new ArgumentException("World \"" + worldId.String + "\" has already been.");
-                PersonalWorld personalWorld = new PersonalWorld("worlds/" + worldId.String, newPlayerOwner.playerSessions[0].Account, true); 
+                PersonalWorld personalWorld = new PersonalWorld(worldId.String, "worlds/" + worldId.String, newPlayerOwner.playerSessions[0].Account, true); 
                 worldManager.AddPersonalWorld(personalWorld);
                 List<MultiplayerWorld> createdWorlds = new List<MultiplayerWorld>();
                 createdWorlds.Add(personalWorld);
@@ -167,6 +167,7 @@ namespace TeleClassic
             }
             foreach (PersonalWorld personalWorld in personalWorlds)
                 personalWorld.Save();
+            Lobby.Save();
         }
     }
 }

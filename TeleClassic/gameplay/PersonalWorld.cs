@@ -17,7 +17,7 @@ namespace TeleClassic.Gameplay
         Dictionary<PlayerSession, WorldEditor> worldEditorInstances;
         public bool CanBuild(PlayerSession playerSession) => ((playerSession.IsLoggedIn && playerSession.Account == Owner) || playerSession.Permissions == Permission.Admin);
 
-        public PersonalWorld(string fileName, Account owner, bool isPublic) : base(fileName, Permission.Member, Permission.Member, int.MaxValue)
+        public PersonalWorld(string name, string fileName, Account owner, bool isPublic) : base(name, fileName, Permission.Member, Permission.Member, int.MaxValue)
         {
             this.Owner = owner;
             this.IsPublic = isPublic;

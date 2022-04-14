@@ -37,6 +37,7 @@ namespace TeleClassic.Networking
     public partial class PlayerSession
     {
         Queue<string> messageBacklog = new Queue<string>();
+        private object messageLockObject = new object();
 
         public void Announce(string announcement)
         {
@@ -60,23 +61,31 @@ namespace TeleClassic.Networking
             }
         }
 
-        public void Message(string message, bool backlogged)
-        {
-            message = message.Replace("\r", string.Empty);
-            if (message.Contains("\n"))
+        public void Message(string message, bool backlogged) {
+
+            void messageNoLock(string message, bool backlogged)
             {
-                foreach (string line in message.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                    Message(line, backlogged);
-            }
-            else
-            {
-                for (int i = 0; i < message.Length; i += 64)
+                message = message.Replace("\r", string.Empty);
+                if (message.Contains("\n"))
                 {
-                    if (backlogged)
-                        messageBacklog.Enqueue(message.Substring(i, Math.Min(message.Length - i, 64)));
-                    else
-                        SendRawMessage(message.Substring(i, Math.Min(message.Length - i, 64)));
+                    foreach (string line in message.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                        messageNoLock(line, backlogged);
                 }
+                else
+                {
+                    for (int i = 0; i < message.Length; i += 64)
+                    {
+                        if (backlogged)
+                            messageBacklog.Enqueue(message.Substring(i, Math.Min(message.Length - i, 64)));
+                        else
+                            SendRawMessage(message.Substring(i, Math.Min(message.Length - i, 64)));
+                    }
+                }
+            }
+
+            lock (messageLockObject)
+            {
+                messageNoLock(message, backlogged);
             }
         }
 
@@ -88,16 +97,22 @@ namespace TeleClassic.Networking
                 SendPacket(new MessagePacket(-1, message));
         }
 
+        public bool ShouldEmptyMessageBacklog() => this.messageBacklog.Count >= 9;
+
         public void EmptyMessageBacklog()
         {
-            if (messageBacklog.Count == 0) {
-                SendRawMessage("No messages from server, backlog empty.");
-                return;
+            lock (messageLockObject)
+            {
+                if (messageBacklog.Count == 0)
+                {
+                    SendRawMessage("No messages from server, backlog empty.");
+                    return;
+                }
+                for (int i = 0; i < 9 && messageBacklog.Count > 0; i++)
+                    SendRawMessage(messageBacklog.Dequeue());
+                if (messageBacklog.Count > 0)
+                    SendRawMessage("Type `next` or press CTRL+N to read " + messageBacklog.Count + " more message(s).");
             }
-            for (int i = 0; i < 9 && messageBacklog.Count > 0; i++)
-                SendRawMessage(messageBacklog.Dequeue());
-            if(messageBacklog.Count > 0)
-                SendRawMessage("Type `next` or press CTRL+N to read " + messageBacklog.Count + " more message(s).");
         }
 
         public void handlePlayerMessage()
@@ -187,7 +202,8 @@ namespace TeleClassic.Gameplay
             }
 
             actorPlayer.Message(input.HeapAllocation.GetString(), true);
-            actorPlayer.EmptyMessageBacklog();
+            if(actorPlayer.ShouldEmptyMessageBacklog())
+                actorPlayer.EmptyMessageBacklog();
             return 1;
         }
 

@@ -155,7 +155,6 @@ namespace TeleClassic.Networking
             playerJoinMode.Remove(playerSession);
             
             playerSession.ResetHackControl();
-            playerSession.RemoveCustomBlockDefinitions();
             Logger.Log("Info", "Player left world " + this.Name + ".", playerSession.Name);
         }
 
@@ -202,7 +201,7 @@ namespace TeleClassic.Networking
                 player.SendPacket(messagePacket);
         }
 
-        public void MessageFromPlayer(PlayerSession playerSession, string message)
+        public virtual void MessageFromPlayer(PlayerSession playerSession, string message)
         {
             if (playerSession.IsMuted)
             {

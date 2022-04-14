@@ -25,7 +25,8 @@ namespace TeleClassic.Networking.Clientbound
             writer.WriteByte(CustomBlockDefinition.BlockID);
             writer.WriteString(CustomBlockDefinition.Name);
             writer.WriteByte((byte)CustomBlockDefinition.Solidity);
-            writer.WriteByte((byte)(Math.Log(CustomBlockDefinition.MovementSpeed, 2) * 64 + 128));
+            //writer.WriteByte((byte)(Math.Log(CustomBlockDefinition.MovementSpeed, 2) * 64 + 128));
+            writer.WriteByte((byte)Math.Pow(2, (CustomBlockDefinition.MovementSpeed - 128) / 64));
             writer.WriteByte(CustomBlockDefinition.TextureInfo.TopTextureID);
             writer.WriteByte(CustomBlockDefinition.TextureInfo.SideTextureID);
             writer.WriteByte(CustomBlockDefinition.TextureInfo.BottomTextureID);
