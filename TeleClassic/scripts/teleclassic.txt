@@ -1,0 +1,180 @@
+﻿$TELECLASSIC - Written by Michael Wang, 2022
+$Use this file as a wrapper to interact with TeleClassic
+
+$position - this is a precise player position
+
+record block_position {
+	int x;
+	int y;
+	int z;
+}
+
+record player_position {
+	int x;
+	int y;
+	int z;
+
+	int heading;
+	int pitch;
+}
+
+record player_info {
+	array<char> name;
+	int perms;
+}
+
+global readonly int perms_admin = 2;
+global readonly int perms_op = 1;
+global readonly int perms_member = 0;
+
+$config information
+record minigame_config {
+	array<char> name;
+	array<char> motd;
+	array<char> author;
+	array<char> workingDir;
+
+	bool runExitQueue;
+	bool runMsgQueue;
+	bool runClickQueue;
+	bool runBlockQueue;
+	bool runMoveQueue;
+	bool runTagQueue;
+
+	bool excludeBlockClick;
+	bool excludeTeleportMove;
+	bool deferBlockPlace;
+}
+
+$message infomation passed via event args upon a player message in chat(excludes commands). Ensure runMsgQueue is configured to true to run this event
+record player_message_info {
+	int playerHandle;
+	array<char> message;
+}
+
+$information regarding block placements. Includes block destruction
+record place_block_info extends block_position {
+	int playerHandle;
+	int blockType;
+}
+
+$information regarding player positions. 
+record player_move_info extends player_position {
+	int playerHandle;
+}
+
+$information passed 
+record player_tag_info {
+	int taggedPlayerHandle;
+	int taggerPlayerHandle;
+}
+
+$player click information passed via event args upon a player click. Ensure runClickQueue is configured to true to run this event
+record player_click_info {
+	int playerHandle;
+
+	int buttonType;
+	bool buttonDown;
+
+	int yaw;
+	int pitch;
+}
+
+$player click buttom types
+global readonly int player_click_button_left = 0;
+global readonly int player_click_button_right = 1;
+global readonly int player_click_button_middle = 2;
+
+$event id's
+global readonly int event_none = -1;
+global readonly int event_player_exit = 0;
+global readonly int event_player_msg = 1;
+global readonly int event_player_click = 2;
+global readonly int event_block_placed = 3;
+global readonly int event_player_move = 4;
+global readonly int event_player_tagged = 5;
+
+$sets the configurations for your minigame. You can only call this function once, and you must do so within 3 seconds of initialization.
+global readonly auto minigame_set_config = proc(minigame_config config) return nothing {
+	foreign[18](config);
+	return;
+};
+
+$logs some information to the console. Use this information to debug.
+global readonly auto minigame_log = proc(array<char> info) return nothing {
+	foreign[19](info);
+	return;
+};
+
+$pops the top of the join queue w/ a new player handle.
+global readonly auto minigame_queue_top = proc() return int {
+	return foreign[20];
+};
+
+$accepts a player
+global readonly auto minigame_accept_player = proc(int playerHandle) return bool {
+	return foreign[21](playerHandle);
+};
+
+$rejects a player
+global readonly auto minigame_reject_player = proc(int playerHandle) return nothing {
+	foreign[22](playerHandle);
+	return;
+};
+
+$gets the next event's id
+global readonly auto minigame_event_id = proc() return int {
+	return foreign[23];
+};
+
+$gets the next event's argument
+global readonly auto minigame_event_args = proc<argType>() return argType {
+	return foreign[24];
+};
+
+$gets the next event, if there is one
+global readonly auto minigame_next_event = proc(bool current_has_args) return bool {
+	return foreign[25](current_has_args);
+};
+
+$sets the actor player
+global readonly auto minigame_set_actor = proc(int playerHandle) return nothing {
+	foreign[26](playerHandle);
+	return;
+};
+
+$urgently messages a player(message won't be backlogged). Requires actor player to be set
+global readonly auto minigame_message_player_urgent = proc(int playerHandle, array<char> message) return nothing {
+	foreign[26](playerHandle);
+	foreign[27](message);
+	return;
+};
+
+$sends a message to a player that is backlogged (player must press CTRL+N scroll to it). Backlog may be cleared after running a command
+global readonly auto minigame_message_player = proc(int playerHandle, array<char> message) return nothing {
+	foreign[26](playerHandle);
+	foreign[28](message);
+	return;
+};
+
+$makes an announcement to a player
+global readonly auto minigame_announce_player = proc(int playerHandle, array<char> message) return nothing {
+	foreign[26](playerHandle);
+	foreign[29](message);
+	return;
+};
+
+$ sets the status message as such: https://wiki.vg/Classic_Protocol_Extension#MessageTypes
+global readonly auto minigame_set_status = proc(int playerHandle, int statusLoc, array<char> message) return bool {
+	foreign[26](playerHandle);
+	foreign[30](statusLoc);
+	return foreign[31](message);
+};
+
+global readonly auto get_player_info = proc(int playerHandle) return player_info {
+	return foreign[32](playerHandle);
+};
+
+global readonly auto get_player_pos = proc(int playerHandle) return player_position {
+	return foreign[33](playerHandle);
+};
